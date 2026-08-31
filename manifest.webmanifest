@@ -1,0 +1,11 @@
+{
+  "name": "Bangla Haat",
+  "short_name": "Bangla Haat",
+  "description": "Bangla Haat inventory and store counter.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#fbf5ea",
+  "theme_color": "#692a33",
+  "orientation": "portrait-primary",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
