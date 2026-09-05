@@ -20,7 +20,7 @@
     // Default configuration (supports optional runtime override via window.BANGLA_HAAT_CONFIG)
     const config = window.BANGLA_HAAT_CONFIG || {
       url: 'https://lktkoucvjklqoswqngtu.supabase.co',
-      anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJhbGciOiJIUzI1NiIsInJlZiI6ImxrdGtvdWN2amtscW9zd3FuZ3R1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ2ODU5ODYsImV4cCI6MjA3MDI2MTk4Nn0.VgbHMwg_hC6CV0C8Mu_abRZ3NvABzsz7bA6QmKnhYgA'
+      anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxrdGtvdWN2amtscW9zd3FuZ3R1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ2ODU5ODYsImV4cCI6MjA3MDI2MTk4Nn0.VgbHMwg_hC6CV0C8Mu_abRZ3NvABzsz7bA6QmKnhYgA'
     };
 
     if (config.url && config.anonKey) {

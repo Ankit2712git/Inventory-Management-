@@ -127,36 +127,77 @@
       </main>
     </div>
 
-    <!-- Sign In Modal -->
+    <!-- Sign In & Registration Modal -->
     <div class="modal-backdrop hidden" id="authModal">
       <div class="auth-card" role="dialog" aria-modal="true">
         <div class="auth-logo">
           <span class="brand-mark">ব</span>
           <b>Bangla Haat</b>
         </div>
-        <p class="eyebrow">WELCOME BACK</p>
-        <h1>Sign in to your workspace</h1>
-        <p class="muted">Manage stock or discover your next handcrafted product.</p>
-        <form id="loginForm">
+
+        <div class="auth-tabs" role="tablist">
+          <button type="button" class="auth-tab active" id="tabSignIn" role="tab" aria-selected="true">Sign In</button>
+          <button type="button" class="auth-tab" id="tabSignUp" role="tab" aria-selected="false">Create Account</button>
+        </div>
+
+        <!-- Sign In Form -->
+        <form id="loginForm" class="auth-form">
+          <p class="eyebrow">WELCOME BACK</p>
+          <h1>Sign in to your workspace</h1>
+          <p class="muted">Manage inventory or explore our curated collection.</p>
+
           <div class="form-group">
             <label for="loginEmail">Email address</label>
-            <input id="loginEmail" type="email" required placeholder="you@company.com" autocomplete="username" />
+            <input id="loginEmail" type="email" required placeholder="you@example.com" autocomplete="username" />
           </div>
           <div class="form-group">
-            <label for="loginPassword">Password</label>
+            <div class="label-with-action">
+              <label for="loginPassword">Password</label>
+              <button type="button" class="text-link" id="forgotPasswordBtn" style="font-size:12px;">Forgot?</button>
+            </div>
             <input id="loginPassword" type="password" required placeholder="••••••••" autocomplete="current-password" />
           </div>
+
           <div class="demo-logins">
             <button type="button" data-demo="admin">Use admin demo</button>
             <button type="button" data-demo="customer">Use customer demo</button>
           </div>
+
           <p class="login-error hidden" id="loginError"></p>
-          <button class="primary full" type="submit">Sign in <span>→</span></button>
+          <p class="login-success hidden" id="loginSuccess"></p>
+          <button class="primary full" id="loginSubmitBtn" type="submit">Sign in <span>→</span></button>
         </form>
-        <p class="auth-note">
-          Admin: <b>admin@stockly.com</b> · Customer: <b>customer@stockly.com</b><br />
-          Password for both: <b>stockly</b>
-        </p>
+
+        <!-- Sign Up Form (Real Supabase Registration) -->
+        <form id="signupForm" class="auth-form hidden">
+          <p class="eyebrow">NEW WORKSPACE</p>
+          <h1>Create your account</h1>
+          <p class="muted">Join Bangla Haat as a customer or store staff.</p>
+
+          <div class="form-group">
+            <label for="signupName">Full name</label>
+            <input id="signupName" required placeholder="e.g. Priya Banerjee" autocomplete="name" />
+          </div>
+          <div class="form-group">
+            <label for="signupEmail">Email address</label>
+            <input id="signupEmail" type="email" required placeholder="priya@example.com" autocomplete="email" />
+          </div>
+          <div class="form-group">
+            <label for="signupPassword">Create password</label>
+            <input id="signupPassword" type="password" required minlength="6" placeholder="Minimum 6 characters" autocomplete="new-password" />
+          </div>
+          <div class="form-group">
+            <label for="signupRole">Account type</label>
+            <select id="signupRole" class="auth-select">
+              <option value="customer">Customer / Shopper</option>
+              <option value="admin">Administrator / Store Staff</option>
+            </select>
+          </div>
+
+          <p class="login-error hidden" id="signupError"></p>
+          <p class="login-success hidden" id="signupSuccess"></p>
+          <button class="primary full" id="signupSubmitBtn" type="submit">Create account <span>→</span></button>
+        </form>
       </div>
     </div>
 

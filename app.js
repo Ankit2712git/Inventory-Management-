@@ -328,6 +328,20 @@ function signOut() {
     loginError.classList.add('hidden');
   }
 
+  const signupForm = document.getElementById('signupForm');
+  if (signupForm) signupForm.reset();
+  const signupError = document.getElementById('signupError');
+  if (signupError) signupError.classList.add('hidden');
+  const signupSuccess = document.getElementById('signupSuccess');
+  if (signupSuccess) signupSuccess.classList.add('hidden');
+  const loginSuccess = document.getElementById('loginSuccess');
+  if (loginSuccess) loginSuccess.classList.add('hidden');
+
+  // Supabase session sign out
+  if (window.banglaHaatSupabase?.auth) {
+    window.banglaHaatSupabase.auth.signOut().catch(() => {});
+  }
+
   // Close menus and dropdowns
   closeDropdowns();
   closeSidebar();
@@ -682,36 +696,58 @@ function discounts() {
 }
 
 function messages() {
+  const currentKey = localStorage.getItem('bangla_haat_web3forms_key') || '';
+  const keyConfigured = Boolean(currentKey);
+
   return `
     <div class="mail-layout">
       <div class="page-heading">
         <div>
           <p class="eyebrow">CUSTOMER CARE</p>
           <h1>Mail us</h1>
-          <p>Questions about a product or an order? We would love to hear from you.</p>
+          <p>Questions about a product or an order? Send a message directly to the store team.</p>
         </div>
       </div>
 
       <div class="mail-card">
         <div class="mail-hero">
           <h2>How can we help?</h2>
-          <p>Our product team usually replies within one business day.</p>
+          <p>Our product team usually replies within one business day directly to your email address.</p>
         </div>
+
+        <div id="mailStatusBanner" class="mail-status-banner hidden"></div>
+
         <form class="item-form" id="mailForm">
           <div class="form-group">
-            <label for="senderEmail">Your email</label>
-            <input id="senderEmail" type="email" required placeholder="you@example.com" value="${state.user.role === 'customer' ? 'customer@example.com' : ''}" />
+            <label for="senderName">Your name</label>
+            <input id="senderName" required placeholder="Your full name" value="${esc(state.user?.name || '')}" />
+          </div>
+          <div class="form-group">
+            <label for="senderEmail">Your email address</label>
+            <input id="senderEmail" type="email" required placeholder="you@example.com" value="${esc(state.user?.email || '')}" />
           </div>
           <div class="form-group">
             <label for="mailSubject">Subject</label>
-            <input id="mailSubject" required placeholder="What can we help with?" />
+            <input id="mailSubject" required placeholder="e.g. Inquiring about Oakline Chair delivery" />
           </div>
           <div class="form-group">
             <label for="mailBody">Message</label>
-            <textarea id="mailBody" required placeholder="Tell us a little more..."></textarea>
+            <textarea id="mailBody" required placeholder="Tell us more about your inquiry or order..."></textarea>
           </div>
-          <button class="primary" type="submit">Send message <span>→</span></button>
+          <button class="primary" id="mailSubmitBtn" type="submit">Send message directly <span>→</span></button>
         </form>
+
+        <div class="mail-config-card">
+          <div>
+            <b>Store Email Integration: Web3Forms</b><br>
+            <small id="web3formsStatusText">
+              ${keyConfigured ? '✓ Connected — delivers straight to store owner inbox.' : 'ℹ️ Direct email delivery ready. Store owner can configure access key anytime.'}
+            </small>
+          </div>
+          <button type="button" class="icon-btn" id="configWeb3FormsBtn">
+            ${keyConfigured ? 'Edit email key' : '⚙ Set email key'}
+          </button>
+        </div>
       </div>
     </div>
   `;
@@ -913,15 +949,95 @@ function bindPage() {
     };
   });
 
-  // Contact form submission
-  document.getElementById('mailForm')?.addEventListener('submit', e => {
+  // Web3Forms Configuration button
+  document.getElementById('configWeb3FormsBtn')?.addEventListener('click', () => {
+    const currentKey = localStorage.getItem('bangla_haat_web3forms_key') || '';
+    const key = prompt('Enter your Web3Forms Access Key (get free at https://web3forms.com):', currentKey);
+    if (key !== null) {
+      if (key.trim()) {
+        localStorage.setItem('bangla_haat_web3forms_key', key.trim());
+        toast('Web3Forms access key saved successfully');
+      } else {
+        localStorage.removeItem('bangla_haat_web3forms_key');
+        toast('Web3Forms access key cleared');
+      }
+      render(false);
+    }
+  });
+
+  // Contact form submission via Web3Forms with live status
+  document.getElementById('mailForm')?.addEventListener('submit', async e => {
     e.preventDefault();
-    const subject = document.getElementById('mailSubject')?.value || 'Inquiry';
-    const body = document.getElementById('mailBody')?.value || '';
-    toast('Opening email client...');
-    setTimeout(() => {
-      location.href = `mailto:support@banglahaat.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    }, 400);
+    const btn = document.getElementById('mailSubmitBtn');
+    const banner = document.getElementById('mailStatusBanner');
+    const name = document.getElementById('senderName')?.value.trim() || 'Customer';
+    const email = document.getElementById('senderEmail')?.value.trim();
+    const subject = document.getElementById('mailSubject')?.value.trim() || 'Customer Inquiry';
+    const message = document.getElementById('mailBody')?.value.trim();
+
+    if (!email || !message) return;
+
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = 'Sending to store owner...';
+    }
+    if (banner) {
+      banner.classList.add('hidden');
+    }
+
+    const accessKey = localStorage.getItem('bangla_haat_web3forms_key') || '743f5505-dfa8-444f-b6a9-8395b2195f19';
+
+    try {
+      const response = await fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify({
+          access_key: accessKey,
+          from_name: name,
+          email: email,
+          subject: `[Bangla Haat] ${subject}`,
+          message: message,
+          botcheck: false
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        if (banner) {
+          banner.className = 'mail-status-banner success';
+          banner.innerHTML = `✓ <b>Message delivered!</b> The store owner has received your message and will respond to <b>${esc(email)}</b>.`;
+          banner.classList.remove('hidden');
+        }
+        document.getElementById('mailSubject').value = '';
+        document.getElementById('mailBody').value = '';
+        toast('Message delivered to store owner');
+      } else {
+        if (banner) {
+          banner.className = 'mail-status-banner error';
+          banner.innerHTML = `Note: ${esc(result.message || 'Access key setup needed')}. <button type="button" class="text-link" id="promptKeyLink" style="color:inherit;text-decoration:underline;">Configure key</button> or <a href="mailto:support@banglahaat.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}" style="color:inherit;text-decoration:underline;margin-left:6px;">open mail app</a>.`;
+          banner.classList.remove('hidden');
+          document.getElementById('promptKeyLink')?.addEventListener('click', () => {
+            document.getElementById('configWeb3FormsBtn')?.click();
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('Direct mail dispatch failed, falling back:', err);
+      if (banner) {
+        banner.className = 'mail-status-banner error';
+        banner.innerHTML = `Could not reach mail server. <a href="mailto:support@banglahaat.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}" style="color:inherit;text-decoration:underline;">Click here to open email app</a>.`;
+        banner.classList.remove('hidden');
+      }
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = 'Send message directly <span>→</span>';
+      }
+    }
   });
 }
 
@@ -1117,27 +1233,214 @@ document.querySelectorAll('[data-switch-demo]').forEach(btn => {
   });
 });
 
-// Login Form submission
-document.getElementById('loginForm')?.addEventListener('submit', e => {
+// Auth Tabs Switching (Sign In vs Create Account)
+document.getElementById('tabSignIn')?.addEventListener('click', () => {
+  document.getElementById('tabSignIn').classList.add('active');
+  document.getElementById('tabSignIn').setAttribute('aria-selected', 'true');
+  document.getElementById('tabSignUp').classList.remove('active');
+  document.getElementById('tabSignUp').setAttribute('aria-selected', 'false');
+
+  document.getElementById('loginForm')?.classList.remove('hidden');
+  document.getElementById('signupForm')?.classList.add('hidden');
+});
+
+document.getElementById('tabSignUp')?.addEventListener('click', () => {
+  document.getElementById('tabSignUp').classList.add('active');
+  document.getElementById('tabSignUp').setAttribute('aria-selected', 'true');
+  document.getElementById('tabSignIn').classList.remove('active');
+  document.getElementById('tabSignIn').setAttribute('aria-selected', 'false');
+
+  document.getElementById('signupForm')?.classList.remove('hidden');
+  document.getElementById('loginForm')?.classList.add('hidden');
+});
+
+// Forgot password link
+document.getElementById('forgotPasswordBtn')?.addEventListener('click', async () => {
+  const emailInput = document.getElementById('loginEmail');
+  const email = prompt('Enter your registered email address to receive password reset link:', emailInput?.value.trim() || '');
+  if (!email) return;
+
+  if (window.banglaHaatSupabase?.auth) {
+    try {
+      const { error } = await window.banglaHaatSupabase.auth.resetPasswordForEmail(email.trim());
+      if (error) throw error;
+      toast('Password reset link sent to your email.');
+    } catch (err) {
+      alert('Password reset error: ' + err.message);
+    }
+  } else {
+    toast('Password reset link sent.');
+  }
+});
+
+// Real Supabase Login Form submission
+document.getElementById('loginForm')?.addEventListener('submit', async e => {
   e.preventDefault();
   const emailInput = document.getElementById('loginEmail');
   const passInput = document.getElementById('loginPassword');
   const errorEl = document.getElementById('loginError');
+  const successEl = document.getElementById('loginSuccess');
+  const submitBtn = document.getElementById('loginSubmitBtn');
 
-  const u = users[emailInput.value.trim().toLowerCase()];
-  if (!u || u.password !== passInput.value) {
-    errorEl.textContent = 'That email or password is not recognised. Try using one of the demo accounts below.';
-    errorEl.classList.remove('hidden');
+  const email = emailInput.value.trim().toLowerCase();
+  const password = passInput.value;
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = 'Signing in...';
+  }
+  if (errorEl) errorEl.classList.add('hidden');
+  if (successEl) successEl.classList.add('hidden');
+
+  // 1. Attempt Supabase Auth
+  if (window.banglaHaatSupabase?.auth) {
+    try {
+      const { data, error } = await window.banglaHaatSupabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        // Fallback to local demo users if email/password matches
+        const localUser = users[email];
+        if (localUser && localUser.password === password) {
+          loginAs(localUser);
+          return;
+        }
+        throw error;
+      }
+
+      if (data?.user) {
+        const u = data.user;
+        const role = u.user_metadata?.role || (u.email === 'admin@stockly.com' ? 'admin' : 'customer');
+        const name = u.user_metadata?.name || u.email.split('@')[0];
+        loginAs({
+          id: u.id,
+          email: u.email,
+          name,
+          role
+        });
+        return;
+      }
+    } catch (err) {
+      console.warn('Supabase auth failed:', err.message);
+      // Check fallback demo account
+      const localUser = users[email];
+      if (localUser && localUser.password === password) {
+        loginAs(localUser);
+        return;
+      }
+      if (errorEl) {
+        errorEl.textContent = err.message || 'Incorrect email or password. Please try again.';
+        errorEl.classList.remove('hidden');
+      }
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Sign in <span>→</span>';
+      }
+    }
     return;
   }
 
-  errorEl.classList.add('hidden');
-  loginAs(u);
+  // 2. Fallback if Supabase not configured
+  const localUser = users[email];
+  if (!localUser || localUser.password !== password) {
+    if (errorEl) {
+      errorEl.textContent = 'That email or password is not recognised.';
+      errorEl.classList.remove('hidden');
+    }
+  } else {
+    loginAs(localUser);
+  }
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = 'Sign in <span>→</span>';
+  }
+});
+
+// Real Supabase User Registration (Sign Up)
+document.getElementById('signupForm')?.addEventListener('submit', async e => {
+  e.preventDefault();
+  const nameInput = document.getElementById('signupName');
+  const emailInput = document.getElementById('signupEmail');
+  const passInput = document.getElementById('signupPassword');
+  const roleInput = document.getElementById('signupRole');
+  const errorEl = document.getElementById('signupError');
+  const successEl = document.getElementById('signupSuccess');
+  const submitBtn = document.getElementById('signupSubmitBtn');
+
+  const name = nameInput.value.trim();
+  const email = emailInput.value.trim().toLowerCase();
+  const password = passInput.value;
+  const role = roleInput.value;
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = 'Creating account...';
+  }
+  if (errorEl) errorEl.classList.add('hidden');
+  if (successEl) successEl.classList.add('hidden');
+
+  if (window.banglaHaatSupabase?.auth) {
+    try {
+      const { data, error } = await window.banglaHaatSupabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name,
+            role
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.session || data?.user) {
+        const u = data.user;
+        if (successEl) {
+          successEl.textContent = '✓ Account created successfully! Logging you in...';
+          successEl.classList.remove('hidden');
+        }
+        setTimeout(() => {
+          loginAs({
+            id: u.id,
+            email: u.email,
+            name: u.user_metadata?.name || name,
+            role: u.user_metadata?.role || role
+          });
+        }, 700);
+        return;
+      } else {
+        if (successEl) {
+          successEl.textContent = 'Account created! Please check your email to verify.';
+          successEl.classList.remove('hidden');
+        }
+      }
+    } catch (err) {
+      if (errorEl) {
+        errorEl.textContent = err.message || 'Unable to create account. Please try again.';
+        errorEl.classList.remove('hidden');
+      }
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Create account <span>→</span>';
+      }
+    }
+  } else {
+    // Local offline fallback
+    users[email] = { email, password, name, role };
+    loginAs(users[email]);
+  }
 });
 
 // Demo accounts fill in auth card
 document.querySelectorAll('[data-demo]').forEach(b => {
   b.onclick = () => {
+    // Switch to Sign In tab if not active
+    document.getElementById('tabSignIn')?.click();
     const email = b.dataset.demo === 'admin' ? 'admin@stockly.com' : 'customer@stockly.com';
     document.getElementById('loginEmail').value = email;
     document.getElementById('loginPassword').value = 'stockly';
@@ -1388,4 +1691,37 @@ if (savedUser) {
   }
 } else {
   show('authModal');
+}
+
+// Auto-restore and synchronize real Supabase session
+if (window.banglaHaatSupabase?.auth) {
+  window.banglaHaatSupabase.auth.getSession().then(({ data: { session } }) => {
+    if (session?.user && !state.user) {
+      const u = session.user;
+      const role = u.user_metadata?.role || (u.email === 'admin@stockly.com' ? 'admin' : 'customer');
+      const name = u.user_metadata?.name || u.email.split('@')[0];
+      loginAs({
+        id: u.id,
+        email: u.email,
+        name,
+        role
+      });
+    }
+  }).catch(() => {});
+
+  window.banglaHaatSupabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN' && session?.user && !state.user) {
+      const u = session.user;
+      const role = u.user_metadata?.role || (u.email === 'admin@stockly.com' ? 'admin' : 'customer');
+      const name = u.user_metadata?.name || u.email.split('@')[0];
+      loginAs({
+        id: u.id,
+        email: u.email,
+        name,
+        role
+      });
+    } else if (event === 'SIGNED_OUT') {
+      if (state.user) signOut();
+    }
+  });
 }

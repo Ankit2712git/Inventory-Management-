@@ -1711,6 +1711,67 @@ body.modal-open {
   border-color: rgba(162, 51, 52, 0.3);
 }
 
+.auth-tabs {
+  display: flex;
+  background: var(--card-alt);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: 20px;
+}
+
+.auth-tab {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: center;
+}
+
+.auth-tab.active {
+  background: #ffffff;
+  color: var(--terracotta);
+  box-shadow: var(--shadow-sm);
+}
+
+.auth-form {
+  display: grid;
+  gap: 16px;
+}
+
+.label-with-action {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.auth-select {
+  width: 100%;
+  border: 1px solid #dcd1c2;
+  border-radius: var(--radius-sm);
+  padding: 11px 13px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--ink);
+  background: #ffffff;
+  outline: 0;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.auth-select:focus {
+  border-color: var(--terracotta);
+  box-shadow: 0 0 0 3px rgba(162, 51, 52, 0.14);
+}
+
 .login-error {
   color: var(--ruby);
   background: var(--ruby-light);
@@ -1719,16 +1780,55 @@ body.modal-open {
   font-size: 13px;
   margin: 0;
   font-weight: 500;
+  border: 1px solid rgba(194, 56, 56, 0.2);
 }
 
-.auth-note {
-  font-size: 11px;
-  line-height: 1.6;
+.login-success {
+  color: var(--emerald);
+  background: var(--emerald-light);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 13px;
+  margin: 0;
+  font-weight: 500;
+  border: 1px solid rgba(42, 124, 92, 0.2);
+}
+
+.mail-status-banner {
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mail-status-banner.success {
+  background: var(--emerald-light);
+  color: var(--emerald);
+  border: 1px solid rgba(42, 124, 92, 0.25);
+}
+
+.mail-status-banner.error {
+  background: var(--ruby-light);
+  color: var(--ruby);
+  border: 1px solid rgba(194, 56, 56, 0.25);
+}
+
+.mail-config-card {
+  margin-top: 20px;
+  padding: 14px 18px;
+  background: var(--card-alt);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
   color: var(--muted);
-  text-align: center;
-  margin: 20px 0 0;
-  padding-top: 16px;
-  border-top: 1px solid var(--line-light);
 }
 
 /* Bill Content Inside Bill Modal */
