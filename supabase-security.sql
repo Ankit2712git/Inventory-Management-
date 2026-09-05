@@ -98,3 +98,34 @@ create policy "Allow authenticated admins to view sales reports"
   for select
   to authenticated
   using (true);
+
+-- =============================================================================
+-- 6. CUSTOMER INQUIRIES & MESSAGES
+-- =============================================================================
+
+create table if not exists public.inquiries (
+  id uuid default gen_random_uuid() primary key,
+  sender_name text not null,
+  sender_email text not null,
+  subject text not null,
+  message text not null,
+  recipient_email text not null default 'ankitmajumdar27@gmail.com',
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.inquiries enable row level security;
+
+-- Allow any customer to send a message
+create policy "Allow public to submit customer inquiries"
+  on public.inquiries
+  for insert
+  using (true)
+  with check (true);
+
+-- Allow only authenticated admin to read incoming customer inquiries
+create policy "Allow authenticated admins to view customer inquiries"
+  on public.inquiries
+  for select
+  to authenticated
+  using (true);
+
