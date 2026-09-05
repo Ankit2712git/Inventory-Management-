@@ -1369,6 +1369,9 @@ if (window.banglaHaatSupabase) {
         discount: Number(p.discount_percent || 0)
       })));
       render(false);
+    })
+    .catch(err => {
+      console.info('Supabase sync skipped (running offline/local mode):', err?.message || err);
     });
 }
 
