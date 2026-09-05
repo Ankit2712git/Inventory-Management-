@@ -3,24 +3,27 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Stockly — Inventory Management</title>
-    <meta name="theme-color" content="#692a33" />
+    <title>Bangla Haat — Inventory & Store Management</title>
+    <meta name="theme-color" content="#4a1e28" />
     <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="description" content="Modern inventory management, checkout, and product discovery for Bangla Haat." />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="icon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="style.css" />
-    <style>.checkout-card{max-width:760px;display:grid;grid-template-columns:.8fr 1.2fr;gap:24px;padding:26px;background:var(--card);border:1px solid var(--line);border-radius:14px}.checkout-result{border-radius:10px;padding:22px;background:#f8ede0;min-height:180px;display:flex;flex-direction:column;justify-content:center}.checkout-result>p{color:var(--muted);margin:0}.checkout-product{display:flex;align-items:center;gap:14px}.checkout-product .product-thumb{width:58px;height:58px}.checkout-product h2{font:800 18px Manrope;margin:4px 0}.checkout-product p{margin:0;color:var(--muted);font-size:13px}.checkout-product>b{margin-left:auto;font:800 20px Manrope}.checkout-result .primary{margin-top:20px}.checkout-error{color:#a53131!important}.checkout-success{color:#287257!important;font-weight:600}.notification-wrap{position:relative}.notification-panel{position:absolute;right:-12px;top:42px;width:260px;padding:14px;background:#fffdf8;border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 25px #43233c2b;z-index:10}.notification-panel>div{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:10px}.notification-panel b{font:700 14px Manrope}.notification-panel button{border:0;background:transparent;color:var(--blue);font:600 11px 'DM Sans';cursor:pointer}.notification-panel p{font-size:12px;line-height:1.4;margin:12px 0 0;color:var(--ink)}.notification-panel p span{color:#b23939;margin-right:6px}.bill-modal{max-width:420px}.bill hr{border:0;border-top:1px solid var(--line);margin:18px 0}.bill-total{display:flex;justify-content:space-between;font-size:18px}.bill-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:24px}@media(max-width:700px){.checkout-card{grid-template-columns:1fr}}</style>
-    <style>
-      body:has(.modal-backdrop:not(.hidden)){overflow:hidden}.modal-backdrop{overflow-y:auto;align-items:flex-start;padding:20px}.modal{max-height:calc(100dvh - 40px);overflow-y:auto;margin:auto}.content{animation:pageIn .28s ease both}@keyframes pageIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}.profile-wrap{position:relative}.profile-menu{position:absolute;right:0;top:47px;width:190px;padding:8px;background:#fffdf8;border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 28px #43233c2b;z-index:12}.profile-menu b,.profile-menu small{display:block;padding:3px 8px}.profile-menu small{color:var(--muted);margin-bottom:7px}.profile-menu button{width:100%;border:0;border-top:1px solid var(--line);background:transparent;padding:10px 8px;text-align:left;color:#a23334;font:600 13px 'DM Sans';cursor:pointer}@media(max-width:700px){.modal-backdrop{padding:10px}.modal{max-height:calc(100dvh - 20px);border-radius:12px}.profile-menu{right:-5px}.topbar{position:sticky;top:0;z-index:6}}
-    </style>
   </head>
   <body>
+    <!-- Mobile sidebar overlay backdrop -->
+    <div class="sidebar-backdrop hidden" id="sidebarBackdrop"></div>
+
     <div class="app-shell">
       <aside class="sidebar" id="sidebar">
-        <a class="brand" href="#"><span class="brand-mark">ব</span><span>Bangla Haat</span></a>
+        <a class="brand" href="#" id="brandLink">
+          <span class="brand-mark">ব</span>
+          <span>Bangla Haat</span>
+        </a>
         <nav class="nav">
           <button class="nav-link active" data-page="dashboard"><span>▦</span> Overview</button>
           <button class="nav-link admin-only" data-page="inventory"><span>◫</span> Inventory</button>
@@ -30,29 +33,246 @@
           <button class="nav-link" data-page="products"><span>◈</span> Browse products</button>
           <button class="nav-link" data-page="messages"><span>✉</span> Mail us</button>
         </nav>
-        <div class="sidebar-footer"><div class="help-card"><span>?</span><div><b>Need a hand?</b><small>We are here to help.</small></div></div><button class="logout" id="logout">↪ &nbsp; Sign out</button></div>
+        <div class="sidebar-footer">
+          <div class="help-card">
+            <span>?</span>
+            <div>
+              <b>Need a hand?</b>
+              <small>We are here to help.</small>
+            </div>
+          </div>
+          <button class="logout" id="logout">↪ &nbsp; Sign out</button>
+        </div>
       </aside>
 
       <main class="main">
-        <header class="topbar"><button class="menu-toggle" id="menuToggle">☰</button><div class="search"><span>⌕</span><input id="searchInput" placeholder="Search inventory..." /></div><div class="header-actions"><div class="notification-wrap"><button class="notification" id="notificationButton" aria-label="Open notifications" aria-expanded="false">♢<i></i></button><div class="notification-panel hidden" id="notificationPanel"><div><b>Notifications</b><button id="clearNotifications">Mark all read</button></div><p><span>●</span> Two items need restocking</p><p><span>●</span> Your inventory is synced</p></div></div><div class="profile-wrap"><button class="profile" id="profileButton" aria-expanded="false"><span class="avatar" id="avatar">A</span><span><b id="profileName">Admin</b><small id="profileRole">Administrator</small></span><em>⌄</em></button><div class="profile-menu hidden" id="profileMenu"><b id="profileMenuName">Admin</b><small id="profileMenuRole">Administrator</small><button id="profileSignOut">Sign out</button></div></div></div></header>
+        <header class="topbar">
+          <div class="topbar-left">
+            <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation menu">☰</button>
+            <div class="search">
+              <span>⌕</span>
+              <input id="searchInput" placeholder="Search inventory by name, SKU, or category..." autocomplete="off" />
+            </div>
+          </div>
+
+          <div class="header-actions">
+            <!-- Notifications Wrap -->
+            <div class="notification-wrap">
+              <button class="notification" id="notificationButton" aria-label="Open notifications" aria-expanded="false">
+                ♢<i id="notificationDot"></i>
+              </button>
+              <div class="notification-panel hidden" id="notificationPanel">
+                <div class="notification-header">
+                  <b>Notifications</b>
+                  <button id="clearNotifications">Mark all read</button>
+                </div>
+                <div class="notification-list">
+                  <div class="notification-item unread">
+                    <span class="dot alert">●</span>
+                    <div>
+                      <p>Two items need restocking</p>
+                      <small>Terra Ceramic Vase & Oakline Chair</small>
+                    </div>
+                  </div>
+                  <div class="notification-item">
+                    <span class="dot success">●</span>
+                    <div>
+                      <p>Inventory database synced</p>
+                      <small>Supabase live sync active</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Profile Wrap -->
+            <div class="profile-wrap">
+              <button class="profile" id="profileButton" aria-haspopup="menu" aria-expanded="false" aria-label="Open user profile menu">
+                <span class="avatar" id="avatar">A</span>
+                <span class="profile-info">
+                  <b id="profileName">Admin</b>
+                  <small id="profileRole">Administrator</small>
+                </span>
+                <em class="profile-chevron">⌄</em>
+              </button>
+              <div class="profile-menu hidden" id="profileMenu" role="menu">
+                <div class="profile-menu-header">
+                  <span class="avatar menu-avatar" id="menuAvatar">A</span>
+                  <div class="profile-menu-text">
+                    <b id="profileMenuName">Admin</b>
+                    <span class="role-badge" id="profileMenuRoleBadge">Administrator</span>
+                    <small class="profile-menu-email" id="profileMenuEmail">admin@stockly.com</small>
+                  </div>
+                </div>
+                <div class="profile-menu-divider"></div>
+                <div class="profile-menu-section">
+                  <span class="menu-section-label">Quick Switch</span>
+                  <button type="button" class="menu-action-btn" data-switch-demo="admin">
+                    <span>👑</span> Admin Mode
+                  </button>
+                  <button type="button" class="menu-action-btn" data-switch-demo="customer">
+                    <span>🛍️</span> Customer View
+                  </button>
+                </div>
+                <div class="profile-menu-divider"></div>
+                <button class="profile-signout-btn" id="profileSignOut" role="menuitem">
+                  <span>↪</span> Sign out
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
 
         <section class="content" id="appContent"></section>
       </main>
     </div>
 
+    <!-- Sign In Modal -->
     <div class="modal-backdrop hidden" id="authModal">
-      <div class="auth-card">
-        <div class="auth-logo"><span class="brand-mark">ব</span><b>Bangla Haat</b></div>
-        <p class="eyebrow">WELCOME BACK</p><h1>Sign in to your workspace</h1><p class="muted">Manage stock or discover your next product.</p>
-        <form id="loginForm"><label>Email<input id="loginEmail" type="email" required placeholder="you@company.com" /></label><label>Password<input id="loginPassword" type="password" required placeholder="••••••••" /></label><div class="demo-logins"><button type="button" data-demo="admin">Use admin demo</button><button type="button" data-demo="customer">Use customer demo</button></div><p class="login-error hidden" id="loginError"></p><button class="primary full" type="submit">Sign in <span>→</span></button></form><p class="auth-note">Admin: <b>admin@stockly.com</b> · Customer: <b>customer@stockly.com</b><br />Password for both: <b>stockly</b></p>
+      <div class="auth-card" role="dialog" aria-modal="true">
+        <div class="auth-logo">
+          <span class="brand-mark">ব</span>
+          <b>Bangla Haat</b>
+        </div>
+        <p class="eyebrow">WELCOME BACK</p>
+        <h1>Sign in to your workspace</h1>
+        <p class="muted">Manage stock or discover your next handcrafted product.</p>
+        <form id="loginForm">
+          <div class="form-group">
+            <label for="loginEmail">Email address</label>
+            <input id="loginEmail" type="email" required placeholder="you@company.com" autocomplete="username" />
+          </div>
+          <div class="form-group">
+            <label for="loginPassword">Password</label>
+            <input id="loginPassword" type="password" required placeholder="••••••••" autocomplete="current-password" />
+          </div>
+          <div class="demo-logins">
+            <button type="button" data-demo="admin">Use admin demo</button>
+            <button type="button" data-demo="customer">Use customer demo</button>
+          </div>
+          <p class="login-error hidden" id="loginError"></p>
+          <button class="primary full" type="submit">Sign in <span>→</span></button>
+        </form>
+        <p class="auth-note">
+          Admin: <b>admin@stockly.com</b> · Customer: <b>customer@stockly.com</b><br />
+          Password for both: <b>stockly</b>
+        </p>
       </div>
     </div>
 
-    <div class="modal-backdrop hidden" id="itemModal"><div class="modal"><button class="close-modal" data-close="itemModal">×</button><p class="eyebrow" id="itemFormLabel">INVENTORY</p><h2 id="itemModalTitle">Add a product</h2><form id="itemForm" class="item-form"><input type="hidden" id="editId" /><label>Product name<input id="itemName" required placeholder="e.g. Aura desk lamp" /></label><div class="form-grid"><label>Unique item code<input id="itemSku" required placeholder="e.g. BHT-DEC-001" /></label><label>Category<input id="itemCategory" required placeholder="Lighting" /></label></div><label>Item description<textarea id="itemDescription" placeholder="Describe the item for customers and staff."></textarea></label><div class="form-grid"><label>Price (₹)<input id="itemPrice" type="number" min="0" required /></label><label>Stock quantity<input id="itemStock" type="number" min="0" required /></label></div><label>Expiry date <small>(leave blank for non-perishable items)</small><input id="itemExpiry" type="date" /></label><label>Product image URL <small>(optional)</small><input id="itemImage" placeholder="https://..." /></label><button class="primary full" type="submit">Save product</button></form></div></div>
-    <div class="modal-backdrop hidden" id="discountModal"><div class="modal slim"><button class="close-modal" data-close="discountModal">×</button><p class="eyebrow">PRICE CONTROL</p><h2>Set a discount</h2><form id="discountForm" class="item-form"><input type="hidden" id="discountId" /><label>Discount percentage<input id="discountPercent" type="number" min="0" max="90" required placeholder="e.g. 15" /></label><p class="muted">The sale price updates immediately across customer product views.</p><button class="primary full" type="submit">Apply discount</button></form></div></div>
-    <div class="modal-backdrop hidden" id="billModal"><div class="modal bill-modal"><button class="close-modal" data-close="billModal">×</button><div id="billContent"></div><div class="bill-actions"><button class="icon-btn" id="printBill">Print bill</button><button class="primary" id="emailBill">Mail bill <span>→</span></button></div></div></div>
-    <div id="toast" class="toast hidden"></div>
+    <!-- Add/Edit Product Modal with Scrollable Body and Fixed Header/Footer -->
+    <div class="modal-backdrop hidden" id="itemModal">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="itemModalTitle">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow" id="itemFormLabel">INVENTORY</p>
+            <h2 id="itemModalTitle">Add a product</h2>
+          </div>
+          <button class="close-modal" data-close="itemModal" aria-label="Close modal">×</button>
+        </div>
+        <form id="itemForm" class="modal-form-wrapper">
+          <div class="modal-body">
+            <input type="hidden" id="editId" />
+            <div class="form-group">
+              <label for="itemName">Product name</label>
+              <input id="itemName" required placeholder="e.g. Aura Desk Lamp" />
+            </div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="itemSku">Unique item code</label>
+                <input id="itemSku" required placeholder="e.g. LGT-204" />
+              </div>
+              <div class="form-group">
+                <label for="itemCategory">Category</label>
+                <input id="itemCategory" required placeholder="Lighting" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="itemDescription">Item description</label>
+              <textarea id="itemDescription" placeholder="Describe the item for customers and staff."></textarea>
+            </div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="itemPrice">Price (₹)</label>
+                <input id="itemPrice" type="number" min="0" required placeholder="2499" />
+              </div>
+              <div class="form-group">
+                <label for="itemStock">Stock quantity</label>
+                <input id="itemStock" type="number" min="0" required placeholder="24" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="itemExpiry">Expiry date <small>(leave blank for non-perishable items)</small></label>
+              <input id="itemExpiry" type="date" />
+            </div>
+            <div class="form-group">
+              <label for="itemImage">Product image URL <small>(optional)</small></label>
+              <input id="itemImage" placeholder="https://images.unsplash.com/..." />
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn-secondary" data-close="itemModal">Cancel</button>
+            <button class="primary" type="submit">Save product</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Discount Modal -->
+    <div class="modal-backdrop hidden" id="discountModal">
+      <div class="modal slim" role="dialog" aria-modal="true" aria-labelledby="discountModalTitle">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">PRICE CONTROL</p>
+            <h2 id="discountModalTitle">Set a discount</h2>
+          </div>
+          <button class="close-modal" data-close="discountModal" aria-label="Close modal">×</button>
+        </div>
+        <form id="discountForm" class="modal-form-wrapper">
+          <div class="modal-body">
+            <input type="hidden" id="discountId" />
+            <div class="form-group">
+              <label for="discountPercent">Discount percentage (%)</label>
+              <input id="discountPercent" type="number" min="0" max="90" required placeholder="e.g. 15" />
+            </div>
+            <p class="muted">The sale price updates immediately across customer product views and checkout.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn-secondary" data-close="discountModal">Cancel</button>
+            <button class="primary" type="submit">Apply discount</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Bill / Invoice Modal -->
+    <div class="modal-backdrop hidden" id="billModal">
+      <div class="modal bill-modal" role="dialog" aria-modal="true">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">BANGLA HAAT</p>
+            <h2>Customer Bill</h2>
+          </div>
+          <button class="close-modal" data-close="billModal" aria-label="Close modal">×</button>
+        </div>
+        <div class="modal-body" id="billContent"></div>
+        <div class="modal-footer bill-actions">
+          <button type="button" class="btn-secondary" data-close="billModal">Close</button>
+          <button class="icon-btn" id="printBill">Print bill</button>
+          <button class="primary" id="emailBill">Mail bill <span>→</span></button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-client.js"></script><script src="app.js"></script><script>if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js'));</script>
+    <script src="supabase-client.js"></script>
+    <script src="app.js"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+      }
+    </script>
   </body>
 </html>
