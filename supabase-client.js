@@ -1,27 +1,24 @@
 /**
  * Bangla Haat — Supabase Client Configuration
  *
- * Security Note:
- * The Supabase 'anon' key is designed to be public and used directly in browser environments.
- * Data protection and authorization MUST be enforced via PostgreSQL Row Level Security (RLS)
- * policies inside your Supabase dashboard.
- *
- * NEVER commit the 'service_role' secret key to GitHub or frontend code.
+ * Security Architecture:
+ * - Zero hardcoded API keys or credentials in GitHub repository files.
+ * - Runtime configuration is loaded securely via window.BANGLA_HAAT_CONFIG
+ *   populated dynamically by the backend server from environment variables.
+ * - If Supabase credentials are not configured in the environment,
+ *   the application runs in resilient offline / local storage mode.
  */
 
 (() => {
   try {
     if (!window.supabase || typeof window.supabase.createClient !== 'function') {
-      console.info('Supabase library not loaded. Running in local storage mode.');
+      console.info('[Bangla Haat] Supabase library not loaded. Running in local storage mode.');
       window.banglaHaatSupabase = null;
       return;
     }
 
-    // Default configuration (supports optional runtime override via window.BANGLA_HAAT_CONFIG)
-    const config = window.BANGLA_HAAT_CONFIG || {
-      url: 'https://lktkoucvjklqoswqngtu.supabase.co',
-      anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxrdGtvdWN2amtscW9zd3FuZ3R1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ2ODU5ODYsImV4cCI6MjA3MDI2MTk4Nn0.VgbHMwg_hC6CV0C8Mu_abRZ3NvABzsz7bA6QmKnhYgA'
-    };
+    // Configuration provided dynamically by server via window.BANGLA_HAAT_CONFIG
+    const config = window.BANGLA_HAAT_CONFIG || {};
 
     if (config.url && config.anonKey) {
       window.banglaHaatSupabase = window.supabase.createClient(config.url, config.anonKey, {
@@ -30,11 +27,13 @@
           autoRefreshToken: true
         }
       });
+      console.info('[Bangla Haat] Supabase live connection active.');
     } else {
       window.banglaHaatSupabase = null;
+      console.info('[Bangla Haat] Operating in secure local storage mode.');
     }
   } catch (err) {
-    console.warn('Supabase client initialization skipped:', err.message);
+    console.warn('[Bangla Haat] Supabase initialization fallback to local storage:', err.message);
     window.banglaHaatSupabase = null;
   }
 })();

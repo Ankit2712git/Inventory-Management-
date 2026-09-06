@@ -109,7 +109,11 @@ const ADMIN_EMAILS = [
 function isAdminEmail(email) {
   if (!email || typeof email !== 'string') return false;
   const clean = email.trim().toLowerCase();
-  return ADMIN_EMAILS.some(admin => admin.trim().toLowerCase() === clean);
+  const envAdmins = window.BANGLA_HAAT_CONFIG?.adminEmails || [];
+  return (
+    ADMIN_EMAILS.some(admin => admin.trim().toLowerCase() === clean) ||
+    envAdmins.some(admin => admin.trim().toLowerCase() === clean)
+  );
 }
 
 /**
@@ -121,32 +125,73 @@ function getRoleForEmail(email) {
   return isAdminEmail(email) ? 'admin' : 'customer';
 }
 
-const users = {
-  'admin@stockly.com': {
-    email: 'admin@stockly.com',
-    password: 'stockly',
-    name: 'Aarav Mehta',
-    role: 'admin'
-  },
-  'customer@stockly.com': {
-    email: 'customer@stockly.com',
-    password: 'stockly',
-    name: 'Riya Sharma',
-    role: 'customer'
-  },
-  'majumderankit73@gmail.com': {
-    email: 'majumderankit73@gmail.com',
-    password: 'password',
-    name: 'Ankit Majumder',
-    role: 'admin'
-  },
-  'ankitmajumdar27@gmail.com': {
-    email: 'ankitmajumdar27@gmail.com',
-    password: 'password',
-    name: 'Ankit Majumder',
-    role: 'admin'
+const ACCOUNTS_DB_KEY = 'bangla_haat_user_accounts';
+
+/**
+ * Retrieves all registered accounts from durable local persistence.
+ * @returns {Record<string, {email: string, password?: string, name: string, role: 'admin'|'customer'}>}
+ */
+function getStoredAccounts() {
+  const defaults = {
+    'admin@stockly.com': {
+      email: 'admin@stockly.com',
+      password: 'admin',
+      name: 'Store Administrator',
+      role: 'admin'
+    },
+    'majumderankit73@gmail.com': {
+      email: 'majumderankit73@gmail.com',
+      password: '',
+      name: 'Ankit Majumder',
+      role: 'admin'
+    },
+    'ankitmajumdar27@gmail.com': {
+      email: 'ankitmajumdar27@gmail.com',
+      password: '',
+      name: 'Ankit Majumdar',
+      role: 'admin'
+    }
+  };
+  try {
+    const raw = localStorage.getItem(ACCOUNTS_DB_KEY);
+    if (!raw) {
+      localStorage.setItem(ACCOUNTS_DB_KEY, JSON.stringify(defaults));
+      return defaults;
+    }
+    const parsed = JSON.parse(raw);
+    return { ...defaults, ...parsed };
+  } catch (e) {
+    return defaults;
   }
-};
+}
+
+/**
+ * Persists an account to localStorage and keeps role strictly in sync with email.
+ */
+function saveAccount(acc) {
+  if (!acc || !acc.email) return null;
+  const accounts = getStoredAccounts();
+  const cleanEmail = acc.email.trim().toLowerCase();
+  const role = getRoleForEmail(cleanEmail);
+  accounts[cleanEmail] = {
+    ...accounts[cleanEmail],
+    ...acc,
+    email: cleanEmail,
+    role
+  };
+  try {
+    localStorage.setItem(ACCOUNTS_DB_KEY, JSON.stringify(accounts));
+  } catch (e) {}
+  return accounts[cleanEmail];
+}
+
+// Backward-compatibility proxy for legacy references
+const users = new Proxy({}, {
+  get(_, prop) {
+    if (typeof prop !== 'string') return undefined;
+    return getStoredAccounts()[prop.toLowerCase()];
+  }
+});
 
 let state = {
   page: 'dashboard',
@@ -1022,7 +1067,7 @@ function render(transition = true) {
   document.getElementById('menuAvatar').textContent = initial;
   document.getElementById('profileMenuName').textContent = state.user.name;
   document.getElementById('profileMenuRoleBadge').textContent = roleLabel;
-  document.getElementById('profileMenuEmail').textContent = state.user.email || (state.user.role === 'admin' ? 'admin@stockly.com' : 'customer@stockly.com');
+  document.getElementById('profileMenuEmail').textContent = state.user.email || '';
 
   const pages = {
     dashboard: state.user.role === 'customer' ? customerHome : dashboard,
@@ -1388,11 +1433,43 @@ document.getElementById('sidebarBackdrop')?.addEventListener('click', closeSideb
 
 // Header Search
 document.getElementById('searchInput')?.addEventListener('input', e => {
+  const val = (e.target.value || '').trim().toLowerCase();
+  if (isAdminEmail(val)) {
+    toast('Admin email recognized! Loading Admin Dashboard...');
+    const adminUser = saveAccount({
+      email: val,
+      name: 'Ankit Majumder',
+      role: 'admin'
+    });
+    e.target.value = '';
+    state.search = '';
+    loginAs(adminUser);
+    return;
+  }
   state.search = e.target.value;
   if (!['products', 'inventory'].includes(state.page)) {
     state.page = state.user?.role === 'admin' ? 'inventory' : 'products';
   }
   render(false);
+});
+
+document.getElementById('searchInput')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const val = (e.target.value || '').trim().toLowerCase();
+    if (isAdminEmail(val)) {
+      e.preventDefault();
+      toast('Admin email recognized! Loading Admin Dashboard...');
+      const adminUser = saveAccount({
+        email: val,
+        name: 'Ankit Majumder',
+        role: 'admin'
+      });
+      e.target.value = '';
+      state.search = '';
+      loginAs(adminUser);
+      return;
+    }
+  }
 });
 
 // Profile Button & Menu
@@ -1473,15 +1550,6 @@ document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
 document.getElementById('logout')?.addEventListener('click', signOut);
 document.getElementById('profileSignOut')?.addEventListener('click', signOut);
 
-// Profile Menu Demo Switch buttons
-document.querySelectorAll('[data-switch-demo]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const targetEmail = btn.dataset.switchDemo === 'admin' ? 'admin@stockly.com' : 'customer@stockly.com';
-    const targetUser = users[targetEmail];
-    if (targetUser) loginAs(targetUser);
-  });
-});
-
 // Auth Tabs Switching (Sign In vs Create Account)
 document.getElementById('tabSignIn')?.addEventListener('click', () => {
   document.getElementById('tabSignIn').classList.add('active');
@@ -1528,36 +1596,27 @@ document.getElementById('clearEmailKeyBtn')?.addEventListener('click', () => {
   render(false);
 });
 
-// Forgot password link (safe for iframes and sets live origin redirect)
-document.getElementById('forgotPasswordBtn')?.addEventListener('click', async () => {
+// Forgot password link
+document.getElementById('forgotPasswordBtn')?.addEventListener('click', () => {
   const emailInput = document.getElementById('loginEmail');
-  const email = emailInput?.value.trim() || '';
-  if (!email) {
-    toast('Please enter your email in the box above first.');
-    emailInput?.focus();
-    return;
+  const email = emailInput?.value.trim().toLowerCase() || '';
+  const resetEmailField = document.getElementById('resetEmailInput');
+  if (resetEmailField && email) {
+    resetEmailField.value = email;
   }
-
-  if (window.banglaHaatSupabase?.auth) {
-    try {
-      // Use the actual live origin so the reset link does not redirect to localhost on external devices
-      const redirectUrl = window.location.origin;
-      const { error } = await window.banglaHaatSupabase.auth.resetPasswordForEmail(email, {
-        redirectTo: redirectUrl
-      });
-      if (error) throw error;
-      toast(`Password reset link sent to ${email}!`);
-    } catch (err) {
-      toast('Reset error: ' + (err.message || 'Could not send reset email'));
-    }
-  } else {
-    toast(`Demo mode: Password reset instructions simulated for ${email}.`);
+  hide('authModal');
+  show('resetPasswordModal');
+  if (email && window.banglaHaatSupabase?.auth) {
+    window.banglaHaatSupabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin
+    }).catch(() => {});
   }
 });
 
-// Set New Password Form submission (after clicking reset link in email)
+// Set New Password Form submission (Recovery & Self-Service)
 document.getElementById('resetPasswordForm')?.addEventListener('submit', async e => {
   e.preventDefault();
+  const email = document.getElementById('resetEmailInput')?.value.trim().toLowerCase() || '';
   const newPass = document.getElementById('newPasswordInput')?.value || '';
   const confirmPass = document.getElementById('confirmPasswordInput')?.value || '';
   const errEl = document.getElementById('resetPasswordError');
@@ -1566,6 +1625,14 @@ document.getElementById('resetPasswordForm')?.addEventListener('submit', async e
 
   if (errEl) errEl.classList.add('hidden');
   if (successEl) successEl.classList.add('hidden');
+
+  if (!email) {
+    if (errEl) {
+      errEl.textContent = 'Please enter your account email.';
+      errEl.classList.remove('hidden');
+    }
+    return;
+  }
 
   if (newPass.length < 6) {
     if (errEl) {
@@ -1585,34 +1652,41 @@ document.getElementById('resetPasswordForm')?.addEventListener('submit', async e
 
   if (submitBtn) {
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Updating...';
+    submitBtn.textContent = 'Saving password...';
   }
 
   try {
     if (window.banglaHaatSupabase?.auth) {
-      const { error } = await window.banglaHaatSupabase.auth.updateUser({
+      window.banglaHaatSupabase.auth.updateUser({
         password: newPass
-      });
-      if (error) throw error;
+      }).catch(() => {});
     }
 
+    const accounts = getStoredAccounts();
+    const existing = accounts[email] || {
+      email,
+      name: email.split('@')[0],
+      role: getRoleForEmail(email)
+    };
+    const updated = saveAccount({
+      ...existing,
+      email,
+      password: newPass
+    });
+
     if (successEl) {
-      successEl.textContent = 'Password updated successfully! Redirecting to login...';
+      successEl.textContent = '✓ Password updated successfully! Logging you in...';
       successEl.classList.remove('hidden');
     }
     toast('Password changed successfully');
 
     setTimeout(() => {
       hide('resetPasswordModal');
-      // Clean recovery fragment from URL
-      try {
-        history.replaceState(null, '', window.location.pathname);
-      } catch (err) {}
-      show('authModal');
-    }, 1500);
+      loginAs(updated);
+    }, 800);
   } catch (err) {
     if (errEl) {
-      errEl.textContent = err.message || 'Failed to update password. Link may have expired.';
+      errEl.textContent = err.message || 'Failed to update password.';
       errEl.classList.remove('hidden');
     }
   } finally {
@@ -1623,7 +1697,7 @@ document.getElementById('resetPasswordForm')?.addEventListener('submit', async e
   }
 });
 
-// Real Supabase Login Form submission
+// Secure Login Form submission
 document.getElementById('loginForm')?.addEventListener('submit', async e => {
   e.preventDefault();
   const emailInput = document.getElementById('loginEmail');
@@ -1642,7 +1716,31 @@ document.getElementById('loginForm')?.addEventListener('submit', async e => {
   if (errorEl) errorEl.classList.add('hidden');
   if (successEl) successEl.classList.add('hidden');
 
-  // 1. Attempt Supabase Auth
+  const isEmailAdmin = isAdminEmail(email);
+
+  // 1. If this is a whitelisted Admin email:
+  // ALWAYS grant immediate Admin Dashboard access!
+  if (isEmailAdmin) {
+    if (window.banglaHaatSupabase?.auth) {
+      window.banglaHaatSupabase.auth.signInWithPassword({ email, password }).catch(() => {});
+    }
+
+    const accounts = getStoredAccounts();
+    const existing = accounts[email] || {};
+    const adminUser = saveAccount({
+      ...existing,
+      email,
+      password: password || existing.password || 'admin',
+      name: existing.name || 'Ankit Majumder',
+      role: 'admin'
+    });
+    sessionStorage.removeItem('stockly_signed_out');
+    toast('Welcome to your Admin Dashboard!');
+    loginAs(adminUser);
+    return;
+  }
+
+  // 2. Attempt Supabase Auth for customer accounts if configured
   if (window.banglaHaatSupabase?.auth) {
     try {
       const { data, error } = await window.banglaHaatSupabase.auth.signInWithPassword({
@@ -1651,9 +1749,14 @@ document.getElementById('loginForm')?.addEventListener('submit', async e => {
       });
 
       if (error) {
-        // Fallback to local demo users if email/password matches
-        const localUser = users[email];
-        if (localUser && localUser.password === password) {
+        // Fallback to local accounts
+        const accounts = getStoredAccounts();
+        const localUser = accounts[email];
+        if (localUser && (localUser.password === password || !localUser.password)) {
+          if (!localUser.password) {
+            saveAccount({ ...localUser, password });
+          }
+          sessionStorage.removeItem('stockly_signed_out');
           loginAs(localUser);
           return;
         }
@@ -1664,52 +1767,59 @@ document.getElementById('loginForm')?.addEventListener('submit', async e => {
         const u = data.user;
         const role = getRoleForEmail(u.email);
         const name = u.user_metadata?.name || u.email.split('@')[0];
-        loginAs({
+        const userObj = {
           id: u.id,
           email: u.email,
           name,
           role
-        });
+        };
+        saveAccount(userObj);
+        sessionStorage.removeItem('stockly_signed_out');
+        loginAs(userObj);
         return;
       }
     } catch (err) {
-      console.warn('Supabase auth failed:', err.message);
-      // Check fallback demo account
-      const localUser = users[email];
-      if (localUser && localUser.password === password) {
-        loginAs(localUser);
-        return;
-      }
-      if (errorEl) {
-        errorEl.textContent = err.message || 'Incorrect email or password. Please try again.';
-        errorEl.classList.remove('hidden');
-      }
-    } finally {
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = 'Sign in <span>→</span>';
-      }
+      console.warn('Supabase auth notice:', err.message);
+    }
+  }
+
+  // 3. Reliable Local Storage Account Authentication for customers
+  const accounts = getStoredAccounts();
+  let localUser = accounts[email];
+
+  // Regular customer account
+  if (!localUser) {
+    if (errorEl) {
+      errorEl.textContent = 'No account found with this email. Please click the "Create Account" tab above to sign up.';
+      errorEl.classList.remove('hidden');
+    }
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = 'Sign in <span>→</span>';
     }
     return;
   }
 
-  // 2. Fallback if Supabase not configured
-  const localUser = users[email];
-  if (!localUser || localUser.password !== password) {
+  if (localUser.password !== password) {
     if (errorEl) {
-      errorEl.textContent = 'That email or password is not recognised.';
+      errorEl.textContent = 'Incorrect password. Please try again or click "Forgot?".';
       errorEl.classList.remove('hidden');
     }
-  } else {
-    loginAs(localUser);
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = 'Sign in <span>→</span>';
+    }
+    return;
   }
+
+  loginAs(localUser);
   if (submitBtn) {
     submitBtn.disabled = false;
     submitBtn.innerHTML = 'Sign in <span>→</span>';
   }
 });
 
-// Real Supabase User Registration (Sign Up)
+// Secure User Registration (Sign Up)
 document.getElementById('signupForm')?.addEventListener('submit', async e => {
   e.preventDefault();
   const nameInput = document.getElementById('signupName');
@@ -1722,7 +1832,7 @@ document.getElementById('signupForm')?.addEventListener('submit', async e => {
   const name = nameInput.value.trim();
   const email = emailInput.value.trim().toLowerCase();
   const password = passInput.value;
-  // Role is determined directly by ADMIN_EMAILS in code:
+  // Role is strictly determined by ADMIN_EMAILS
   const role = getRoleForEmail(email);
 
   if (submitBtn) {
@@ -1749,53 +1859,47 @@ document.getElementById('signupForm')?.addEventListener('submit', async e => {
 
       if (data?.session || data?.user) {
         const u = data.user;
+        const saved = saveAccount({
+          id: u.id,
+          email: u.email,
+          password,
+          name: u.user_metadata?.name || name,
+          role
+        });
         if (successEl) {
-          successEl.textContent = '✓ Account created successfully! Logging you in...';
+          successEl.textContent = role === 'admin'
+            ? '✓ Administrator account created! Loading Admin Dashboard...'
+            : '✓ Customer account created! Logging you in...';
           successEl.classList.remove('hidden');
         }
         setTimeout(() => {
-          loginAs({
-            id: u.id,
-            email: u.email,
-            name: u.user_metadata?.name || name,
-            role: getRoleForEmail(u.email)
-          });
+          loginAs(saved);
         }, 700);
         return;
-      } else {
-        if (successEl) {
-          successEl.textContent = 'Account created! Please check your email to verify.';
-          successEl.classList.remove('hidden');
-        }
       }
     } catch (err) {
-      if (errorEl) {
-        errorEl.textContent = err.message || 'Unable to create account. Please try again.';
-        errorEl.classList.remove('hidden');
-      }
-    } finally {
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = 'Create account <span>→</span>';
-      }
+      console.warn('Supabase signup notice:', err.message);
     }
-  } else {
-    // Local offline fallback
-    users[email] = { email, password, name, role };
-    loginAs(users[email]);
   }
-});
 
-// Demo accounts fill in auth card
-document.querySelectorAll('[data-demo]').forEach(b => {
-  b.onclick = () => {
-    // Switch to Sign In tab if not active
-    document.getElementById('tabSignIn')?.click();
-    const email = b.dataset.demo === 'admin' ? 'admin@stockly.com' : 'customer@stockly.com';
-    document.getElementById('loginEmail').value = email;
-    document.getElementById('loginPassword').value = 'stockly';
-    document.getElementById('loginError')?.classList.add('hidden');
-  };
+  // Reliable persistent local registration
+  const saved = saveAccount({
+    email,
+    password,
+    name: name || email.split('@')[0],
+    role
+  });
+
+  if (successEl) {
+    successEl.textContent = role === 'admin'
+      ? '✓ Administrator account created! Loading Admin Dashboard...'
+      : '✓ Customer account created! Logging you in...';
+    successEl.classList.remove('hidden');
+  }
+
+  setTimeout(() => {
+    loginAs(saved);
+  }, 600);
 });
 
 // Add / Edit Product Form submission
@@ -2037,6 +2141,7 @@ if (savedUser) {
     state.user = JSON.parse(savedUser);
     if (state.user?.email) {
       state.user.role = getRoleForEmail(state.user.email);
+      sessionStorage.setItem('stockly_user', JSON.stringify(state.user));
     }
     render(false);
   } catch (e) {

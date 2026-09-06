@@ -12,7 +12,20 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="style.css?v=8" />
+    <link rel="stylesheet" href="style.css?v=20260906" />
+    <script>
+      // Clear legacy service worker caches immediately
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(regs => {
+          for (const r of regs) r.unregister();
+        });
+      }
+      if ('caches' in window) {
+        caches.keys().then(keys => {
+          for (const k of keys) caches.delete(k);
+        });
+      }
+    </script>
   </head>
   <body>
     <!-- Mobile sidebar overlay backdrop -->
@@ -92,16 +105,6 @@
                   </div>
                 </div>
                 <div class="profile-menu-divider"></div>
-                <div class="profile-menu-section">
-                  <span class="menu-section-label">Quick Switch</span>
-                  <button type="button" class="menu-action-btn" data-switch-demo="admin">
-                    <span>👑</span> Admin Mode
-                  </button>
-                  <button type="button" class="menu-action-btn" data-switch-demo="customer">
-                    <span>🛍️</span> Customer View
-                  </button>
-                </div>
-                <div class="profile-menu-divider"></div>
                 <button class="profile-signout-btn" id="profileSignOut" role="menuitem">
                   <span>↪</span> Sign out
                 </button>
@@ -143,11 +146,6 @@
               <button type="button" class="text-link" id="forgotPasswordBtn" style="font-size:12px;">Forgot?</button>
             </div>
             <input id="loginPassword" type="password" required placeholder="••••••••" autocomplete="current-password" />
-          </div>
-
-          <div class="demo-logins">
-            <button type="button" data-demo="admin">Use admin demo</button>
-            <button type="button" data-demo="customer">Use customer demo</button>
           </div>
 
           <p class="login-error hidden" id="loginError"></p>
@@ -305,6 +303,10 @@
         <form id="resetPasswordForm" class="modal-form-wrapper">
           <div class="modal-body">
             <div class="form-group">
+              <label for="resetEmailInput">Account email</label>
+              <input id="resetEmailInput" type="email" required placeholder="you@example.com" autocomplete="email" />
+            </div>
+            <div class="form-group">
               <label for="newPasswordInput">New password</label>
               <input id="newPasswordInput" type="password" required minlength="6" placeholder="At least 6 characters" autocomplete="new-password" />
             </div>
@@ -393,16 +395,8 @@
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-client.js?v=8"></script>
-    <script src="app.js?v=8"></script>
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js').catch((err) => {
-            console.debug('ServiceWorker registration skipped:', err?.message || err);
-          });
-        });
-      }
-    </script>
+    <script src="/api/config.js"></script>
+    <script src="supabase-client.js?v=20260906"></script>
+    <script src="app.js?v=20260906"></script>
   </body>
 </html>

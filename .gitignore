@@ -2,15 +2,34 @@
 .env
 .env.*
 *.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+!/.env.example
+
+# Secrets, certificates, and keys
 *.pem
 *.key
 *.cert
+*.crt
+*.p12
+*.pfx
+*.asc
 credentials.json
-serviceAccountKey.json
+serviceAccountKey*.json
+client_secret*.json
+firebase-applet-config.json
+token.json
 
 # Operating System files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
 Thumbs.db
+ehthumbs.db
 desktop.ini
 
 # Editor and IDE configurations
@@ -21,14 +40,19 @@ desktop.ini
 *.sublime-project
 *.sublime-workspace
 
-# Dependency and build directories (if added in the future)
+# Dependency and package manager directories
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.pnpm-debug.log*
 
-# Local logs and temporary files
+# Local logs, runtime data, and temporary files
 *.log
 scratch/
 tmp/
 temp/
+.cache/
+.parcel-cache/
+.turbo/
+
