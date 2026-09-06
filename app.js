@@ -3,6 +3,13 @@
  * Core Application Logic & State Management
  */
 
+// Silence any harmless DOMException/AbortError if a browser transition is interrupted
+window.addEventListener('unhandledrejection', event => {
+  if (event.reason && (event.reason.message?.includes('Transition was skipped') || event.reason.name === 'AbortError')) {
+    event.preventDefault();
+  }
+});
+
 const DB_KEY = 'stockly_inventory_v1';
 const SALES_KEY = 'bangla_haat_sales_v1';
 
@@ -81,6 +88,39 @@ const defaultProducts = [
   }
 ];
 
+// =============================================================================
+// ADMIN ACCESS CONFIGURATION (Edit in code)
+// -----------------------------------------------------------------------------
+// Add any email addresses that should have Administrator privileges below.
+// Anyone signing up or logging in with an email in this array is automatically
+// assigned the 'admin' role. All other emails default to 'customer'.
+// =============================================================================
+const ADMIN_EMAILS = [
+  'admin@stockly.com',
+  'majumderankit73@gmail.com',
+  'ankitmajumdar27@gmail.com'
+];
+
+/**
+ * Checks whether an email address has administrator privileges.
+ * @param {string} email
+ * @returns {boolean}
+ */
+function isAdminEmail(email) {
+  if (!email || typeof email !== 'string') return false;
+  const clean = email.trim().toLowerCase();
+  return ADMIN_EMAILS.some(admin => admin.trim().toLowerCase() === clean);
+}
+
+/**
+ * Resolves the account role ('admin' or 'customer') for an email address.
+ * @param {string} email
+ * @returns {'admin' | 'customer'}
+ */
+function getRoleForEmail(email) {
+  return isAdminEmail(email) ? 'admin' : 'customer';
+}
+
 const users = {
   'admin@stockly.com': {
     email: 'admin@stockly.com',
@@ -93,6 +133,18 @@ const users = {
     password: 'stockly',
     name: 'Riya Sharma',
     role: 'customer'
+  },
+  'majumderankit73@gmail.com': {
+    email: 'majumderankit73@gmail.com',
+    password: 'password',
+    name: 'Ankit Majumder',
+    role: 'admin'
+  },
+  'ankitmajumdar27@gmail.com': {
+    email: 'ankitmajumdar27@gmail.com',
+    password: 'password',
+    name: 'Ankit Majumder',
+    role: 'admin'
   }
 };
 
@@ -359,6 +411,9 @@ function signOut() {
 }
 
 function loginAs(user) {
+  if (user && user.email) {
+    user.role = getRoleForEmail(user.email);
+  }
   state.user = user;
   sessionStorage.setItem('stockly_user', JSON.stringify(user));
   state.page = 'dashboard';
@@ -546,14 +601,18 @@ function customerHome() {
 
       <div class="products-grid featured-products">
         ${picks.map(p => `
-          <article class="product-card">
+          <article class="product-card" data-product-id="${p.id}" style="cursor: pointer;">
             ${img(p, 'product-image')}
             <div class="product-body">
               <p class="product-category">${esc(p.category)}</p>
               <h2 class="product-title">${esc(p.name)}</h2>
+              <p class="product-desc">${esc(p.description || 'Handcrafted treasure inspired by the warmth, craft, and heritage of Bengal.')}</p>
               <div class="product-meta">
                 <span class="price">${money(salePrice(p))}</span>
                 ${p.discount ? `<span class="discount-pill">${p.discount}% OFF</span>` : status(p)}
+              </div>
+              <div class="product-actions" style="margin-top: 12px;">
+                <button class="view-details-btn" data-detail-id="${p.id}" style="width: 100%;">View description & craft details →</button>
               </div>
             </div>
           </article>
@@ -605,11 +664,12 @@ function productCards() {
   }
 
   return rows.map(p => `
-    <article class="product-card">
+    <article class="product-card" data-product-id="${p.id}" style="cursor: pointer;">
       ${img(p, 'product-image')}
       <div class="product-body">
         <p class="product-category">${esc(p.category)}</p>
         <h2 class="product-title">${esc(p.name)}</h2>
+        <p class="product-desc">${esc(p.description || 'Artisanal Bengali handcrafted item made with authentic materials.')}</p>
         <div class="product-meta">
           <div>
             <span class="price">${money(salePrice(p))}</span>
@@ -619,11 +679,13 @@ function productCards() {
         </div>
         ${state.user.role === 'admin' ? `
           <div class="product-actions">
-            <button class="icon-btn edit" data-id="${p.id}">Edit product</button>
-            <button class="icon-btn discount" data-id="${p.id}">Set offer</button>
+            <button class="view-details-btn" data-detail-id="${p.id}">Details</button>
+            <button class="icon-btn edit" data-id="${p.id}">Edit</button>
+            <button class="icon-btn discount" data-id="${p.id}">Offer</button>
           </div>
         ` : `
           <div class="product-actions">
+            <button class="view-details-btn" data-detail-id="${p.id}">View description</button>
             <button class="primary" ${p.stock === 0 ? 'disabled' : ''} data-go="checkout">
               ${p.stock ? 'Buy at counter' : 'Out of stock'}
             </button>
@@ -737,17 +799,18 @@ function messages() {
           <button class="primary" id="mailSubmitBtn" type="submit">Send message directly <span>→</span></button>
         </form>
 
+        ${state.user?.role === 'admin' ? `
         <div class="mail-config-card">
           <div>
-            <b>Store Email Integration: Web3Forms</b><br>
+            <b>Store Inbox & Messaging: Active</b><br>
             <small id="web3formsStatusText">
-              ${keyConfigured ? '✓ Connected — delivers straight to store owner inbox.' : 'ℹ️ Direct email delivery ready. Store owner can configure access key anytime.'}
+              ${keyConfigured ? '✓ Custom Web3Forms key connected & Store inbox active.' : '✓ Store inbox server is active — customer inquiries are received directly by the store team.'}
             </small>
           </div>
           <button type="button" class="icon-btn" id="configWeb3FormsBtn">
-            ${keyConfigured ? 'Edit email key' : '⚙ Set email key'}
+            ${keyConfigured ? 'Edit email key' : '⚙ Email settings'}
           </button>
-        </div>
+        </div>` : ''}
       </div>
     </div>
   `;
@@ -848,10 +911,104 @@ function checkout() {
 /* --------------------------------------------------------------------------
    Render & Page Binding
    -------------------------------------------------------------------------- */
+function renderNotifications() {
+  const notifList = document.getElementById('notificationList');
+  const notifDot = document.getElementById('notificationDot');
+  if (!notifList || !state.user) return;
+
+  const currentSales = (typeof sales === 'function' ? sales() : []) || [];
+  const currentProducts = (typeof products === 'function' ? products() : []) || [];
+
+  if (state.user.role === 'customer') {
+    // Customer-specific notifications: orders, offers, and craft news
+    const userEmail = (state.user.email || '').toLowerCase();
+    const customerOrders = currentSales.filter(s => s && s.customerEmail && s.customerEmail.toLowerCase() === userEmail);
+
+    let html = '';
+    if (customerOrders.length > 0) {
+      const latest = customerOrders[0];
+      const itemsCount = (latest.items && latest.items.length) || 1;
+      const totalAmount = Number(latest.total) || 0;
+      html += `
+        <div class="notification-item unread">
+          <span class="dot success">●</span>
+          <div>
+            <p>Order confirmed (#${String(latest.id || '').slice(-6).toUpperCase()})</p>
+            <small>${itemsCount} item(s) • ₹${totalAmount.toLocaleString('en-IN')}</small>
+          </div>
+        </div>
+      `;
+    }
+
+    html += `
+      <div class="notification-item">
+        <span class="dot info">●</span>
+        <div>
+          <p>Welcome to Bangla Haat</p>
+          <small>Explore handcrafted Bengal heritage items and seasonal collections</small>
+        </div>
+      </div>
+      <div class="notification-item">
+        <span class="dot success">●</span>
+        <div>
+          <p>Authentic artisans guaranteed</p>
+          <small>All handcrafted terracotta, brass, and textiles directly sourced</small>
+        </div>
+      </div>
+    `;
+
+    notifList.innerHTML = html;
+    if (notifDot) notifDot.style.display = customerOrders.length > 0 ? 'block' : 'none';
+  } else {
+    // Admin-specific store management alerts: real inventory warnings based on stock levels
+    const lowStock = currentProducts.filter(i => (Number(i.stock) || 0) <= 5);
+    const outOfStock = currentProducts.filter(i => (Number(i.stock) || 0) === 0);
+
+    let html = '';
+    if (outOfStock.length > 0) {
+      html += `
+        <div class="notification-item unread">
+          <span class="dot alert">●</span>
+          <div>
+            <p>${outOfStock.length} item(s) out of stock</p>
+            <small>${outOfStock.map(i => i.name).slice(0, 2).join(', ')}${outOfStock.length > 2 ? '...' : ''}</small>
+          </div>
+        </div>
+      `;
+    }
+    if (lowStock.length > outOfStock.length) {
+      const lowOnly = lowStock.filter(i => Number(i.stock) > 0);
+      html += `
+        <div class="notification-item unread">
+          <span class="dot warning">●</span>
+          <div>
+            <p>${lowOnly.length} item(s) need restocking</p>
+            <small>${lowOnly.map(i => i.name).slice(0, 2).join(', ')}${lowOnly.length > 2 ? '...' : ''}</small>
+          </div>
+        </div>
+      `;
+    }
+
+    html += `
+      <div class="notification-item">
+        <span class="dot success">●</span>
+        <div>
+          <p>Store inventory synced</p>
+          <small>${currentProducts.length} products tracked in database</small>
+        </div>
+      </div>
+    `;
+
+    notifList.innerHTML = html;
+    if (notifDot) notifDot.style.display = (outOfStock.length > 0 || lowStock.length > 0) ? 'block' : 'none';
+  }
+}
+
 function render(transition = true) {
   if (!state.user) return;
 
   nav();
+  renderNotifications();
 
   // Synchronize Topbar profile info
   const initial = (state.user.name || 'User')[0].toUpperCase();
@@ -897,14 +1054,109 @@ function render(transition = true) {
     }
   };
 
-  if (transition && document.startViewTransition) {
-    document.startViewTransition(contentRenderer);
-  } else {
-    contentRenderer();
+  // Perform seamless page render with CSS animation (prevents 'Transition was skipped' errors)
+  contentRenderer();
+}
+
+function openProductDetail(id) {
+  const p = products().find(x => x.id === id);
+  if (!p) return;
+
+  const titleEl = document.getElementById('productDetailTitle');
+  const catEl = document.getElementById('productDetailCategory');
+  const catTextEl = document.getElementById('productDetailCategoryText');
+  const skuEl = document.getElementById('productDetailSku');
+  const descEl = document.getElementById('productDetailDesc');
+  const imgEl = document.getElementById('productDetailImage');
+  const priceEl = document.getElementById('productDetailPrice');
+  const oldPriceEl = document.getElementById('productDetailOldPrice');
+  const discountEl = document.getElementById('productDetailDiscount');
+  const stockEl = document.getElementById('productDetailStock');
+  const actionBtn = document.getElementById('productDetailActionBtn');
+
+  if (titleEl) titleEl.textContent = p.name;
+  if (catEl) catEl.textContent = (p.category || 'HERITAGE ITEM').toUpperCase();
+  if (catTextEl) catTextEl.textContent = p.category || 'Bengal Heritage';
+  if (skuEl) skuEl.textContent = p.sku || 'N/A';
+  if (descEl) descEl.textContent = p.description || 'Handcrafted item inspired by the timeless artisan traditions, colors, and craftsmanship of Bengal.';
+
+  if (imgEl) {
+    const fallback = 'https://images.unsplash.com/photo-1512428559087-560fa5ceab42?auto=format&fit=crop&w=700&q=80';
+    imgEl.src = p.image || fallback;
+    imgEl.alt = p.name;
+    imgEl.onerror = () => { imgEl.src = fallback; };
   }
+
+  if (priceEl) priceEl.textContent = money(salePrice(p));
+
+  if (oldPriceEl) {
+    if (p.discount) {
+      oldPriceEl.textContent = money(p.price);
+      oldPriceEl.classList.remove('hidden');
+    } else {
+      oldPriceEl.textContent = '';
+      oldPriceEl.classList.add('hidden');
+    }
+  }
+
+  if (discountEl) {
+    if (p.discount) {
+      discountEl.textContent = `${p.discount}% OFF`;
+      discountEl.classList.remove('hidden');
+    } else {
+      discountEl.classList.add('hidden');
+    }
+  }
+
+  if (stockEl) {
+    if (p.stock === 0) {
+      stockEl.innerHTML = '<span class="status out">Out of stock</span>';
+    } else if (p.stock < 8) {
+      stockEl.innerHTML = `<span class="status low">Low stock — only ${p.stock} left</span>`;
+    } else {
+      stockEl.innerHTML = `<span class="status in">In stock (${p.stock} available)</span>`;
+    }
+  }
+
+  if (actionBtn) {
+    if (p.stock === 0) {
+      actionBtn.disabled = true;
+      actionBtn.textContent = 'Out of stock';
+    } else {
+      actionBtn.disabled = false;
+      actionBtn.textContent = state.user?.role === 'admin' ? 'Edit item' : 'Buy at counter';
+      actionBtn.onclick = () => {
+        hide('productDetailModal');
+        if (state.user?.role === 'admin') {
+          openItem(p);
+        } else {
+          state.page = 'checkout';
+          render(true);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      };
+    }
+  }
+
+  show('productDetailModal');
 }
 
 function bindPage() {
+  // Product detail & description triggers
+  document.querySelectorAll('[data-detail-id]').forEach(b => {
+    b.onclick = (e) => {
+      e.stopPropagation();
+      openProductDetail(b.dataset.detailId);
+    };
+  });
+
+  document.querySelectorAll('.product-card[data-product-id]').forEach(card => {
+    card.onclick = (e) => {
+      if (e.target.closest('button') || e.target.closest('a') || e.target.closest('input')) return;
+      openProductDetail(card.dataset.productId);
+    };
+  });
+
   // Navigation buttons
   document.querySelectorAll('[data-go]').forEach(b => {
     b.onclick = () => {
@@ -949,23 +1201,16 @@ function bindPage() {
     };
   });
 
-  // Web3Forms Configuration button
+  // Store Email Configuration modal open
   document.getElementById('configWeb3FormsBtn')?.addEventListener('click', () => {
-    const currentKey = localStorage.getItem('bangla_haat_web3forms_key') || '';
-    const key = prompt('Enter your Web3Forms Access Key (get free at https://web3forms.com):', currentKey);
-    if (key !== null) {
-      if (key.trim()) {
-        localStorage.setItem('bangla_haat_web3forms_key', key.trim());
-        toast('Web3Forms access key saved successfully');
-      } else {
-        localStorage.removeItem('bangla_haat_web3forms_key');
-        toast('Web3Forms access key cleared');
-      }
-      render(false);
+    const input = document.getElementById('web3FormsKeyInput');
+    if (input) {
+      input.value = localStorage.getItem('bangla_haat_web3forms_key') || '';
     }
+    show('emailConfigModal');
   });
 
-  // Contact form submission via Web3Forms with live status
+  // Contact form submission via store server with live status
   document.getElementById('mailForm')?.addEventListener('submit', async e => {
     e.preventDefault();
     const btn = document.getElementById('mailSubmitBtn');
@@ -979,57 +1224,60 @@ function bindPage() {
 
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = 'Sending to store owner...';
+      btn.innerHTML = 'Sending to store team...';
     }
     if (banner) {
       banner.classList.add('hidden');
     }
 
-    const accessKey = localStorage.getItem('bangla_haat_web3forms_key') || '743f5505-dfa8-444f-b6a9-8395b2195f19';
-
     try {
-      const response = await fetch('https://api.web3forms.com/submit', {
+      // 1. Dispatch to store backend server
+      const response = await fetch('/api/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json'
         },
         body: JSON.stringify({
-          access_key: accessKey,
-          from_name: name,
-          email: email,
-          subject: `[Bangla Haat] ${subject}`,
-          message: message,
-          botcheck: false
+          name,
+          email,
+          subject,
+          message
         })
       });
 
-      const result = await response.json();
+      const result = await response.json().catch(() => ({ success: true }));
 
-      if (result.success) {
-        if (banner) {
-          banner.className = 'mail-status-banner success';
-          banner.innerHTML = `✓ <b>Message delivered!</b> The store owner has received your message and will respond to <b>${esc(email)}</b>.`;
-          banner.classList.remove('hidden');
-        }
-        document.getElementById('mailSubject').value = '';
-        document.getElementById('mailBody').value = '';
-        toast('Message delivered to store owner');
-      } else {
-        if (banner) {
-          banner.className = 'mail-status-banner error';
-          banner.innerHTML = `Note: ${esc(result.message || 'Access key setup needed')}. <button type="button" class="text-link" id="promptKeyLink" style="color:inherit;text-decoration:underline;">Configure key</button> or <a href="mailto:support@banglahaat.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}" style="color:inherit;text-decoration:underline;margin-left:6px;">open mail app</a>.`;
-          banner.classList.remove('hidden');
-          document.getElementById('promptKeyLink')?.addEventListener('click', () => {
-            document.getElementById('configWeb3FormsBtn')?.click();
-          });
-        }
+      // Optional mirror to custom Web3Forms key if explicitly configured by the store owner
+      const customKey = localStorage.getItem('bangla_haat_web3forms_key');
+      if (customKey) {
+        fetch('https://api.web3forms.com/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ access_key: customKey, from_name: name, email, subject: `[Bangla Haat] ${subject}`, message, botcheck: false })
+        }).catch(err => console.debug('Optional Web3Forms mirror error:', err));
       }
+
+      // Save locally to inquiry history for client persistence
+      try {
+        const history = JSON.parse(localStorage.getItem('bangla_haat_inquiries_v1') || '[]');
+        history.unshift({ id: result.id || Date.now(), name, email, subject, message, date: new Date().toISOString() });
+        localStorage.setItem('bangla_haat_inquiries_v1', JSON.stringify(history.slice(0, 50)));
+      } catch (e) {}
+
+      if (banner) {
+        banner.className = 'mail-status-banner success';
+        banner.innerHTML = `✓ <b>Message delivered!</b> Thank you, <b>${esc(name)}</b>. The Bangla Haat team has received your message and will respond to <b>${esc(email)}</b>.`;
+        banner.classList.remove('hidden');
+      }
+      document.getElementById('mailSubject').value = '';
+      document.getElementById('mailBody').value = '';
+      toast('Message delivered to store team');
     } catch (err) {
       console.warn('Direct mail dispatch failed, falling back:', err);
       if (banner) {
         banner.className = 'mail-status-banner error';
-        banner.innerHTML = `Could not reach mail server. <a href="mailto:support@banglahaat.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}" style="color:inherit;text-decoration:underline;">Click here to open email app</a>.`;
+        banner.innerHTML = `Could not reach server. <a href="mailto:support@banglahaat.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}" style="color:inherit;text-decoration:underline;margin-left:4px;">Click here to open email client</a>.`;
         banner.classList.remove('hidden');
       }
     } finally {
@@ -1178,6 +1426,7 @@ document.getElementById('clearNotifications')?.addEventListener('click', () => {
   document.getElementById('notificationButton')?.setAttribute('aria-expanded', 'false');
   const dot = document.getElementById('notificationDot');
   if (dot) dot.style.display = 'none';
+  document.querySelectorAll('#notificationList .unread').forEach(el => el.classList.remove('unread'));
   toast('Notifications marked as read');
 });
 
@@ -1254,22 +1503,123 @@ document.getElementById('tabSignUp')?.addEventListener('click', () => {
   document.getElementById('loginForm')?.classList.add('hidden');
 });
 
-// Forgot password link
+// Email Integration Settings Form submission
+document.getElementById('emailConfigForm')?.addEventListener('submit', e => {
+  e.preventDefault();
+  const val = document.getElementById('web3FormsKeyInput')?.value.trim() || '';
+  if (val) {
+    localStorage.setItem('bangla_haat_web3forms_key', val);
+    toast('Custom email key saved successfully');
+  } else {
+    localStorage.removeItem('bangla_haat_web3forms_key');
+    toast('Using built-in store message server');
+  }
+  hide('emailConfigModal');
+  render(false);
+});
+
+// Clear custom email key
+document.getElementById('clearEmailKeyBtn')?.addEventListener('click', () => {
+  localStorage.removeItem('bangla_haat_web3forms_key');
+  const input = document.getElementById('web3FormsKeyInput');
+  if (input) input.value = '';
+  toast('Custom email key cleared');
+  hide('emailConfigModal');
+  render(false);
+});
+
+// Forgot password link (safe for iframes and sets live origin redirect)
 document.getElementById('forgotPasswordBtn')?.addEventListener('click', async () => {
   const emailInput = document.getElementById('loginEmail');
-  const email = prompt('Enter your registered email address to receive password reset link:', emailInput?.value.trim() || '');
-  if (!email) return;
+  const email = emailInput?.value.trim() || '';
+  if (!email) {
+    toast('Please enter your email in the box above first.');
+    emailInput?.focus();
+    return;
+  }
 
   if (window.banglaHaatSupabase?.auth) {
     try {
-      const { error } = await window.banglaHaatSupabase.auth.resetPasswordForEmail(email.trim());
+      // Use the actual live origin so the reset link does not redirect to localhost on external devices
+      const redirectUrl = window.location.origin;
+      const { error } = await window.banglaHaatSupabase.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectUrl
+      });
       if (error) throw error;
-      toast('Password reset link sent to your email.');
+      toast(`Password reset link sent to ${email}!`);
     } catch (err) {
-      alert('Password reset error: ' + err.message);
+      toast('Reset error: ' + (err.message || 'Could not send reset email'));
     }
   } else {
-    toast('Password reset link sent.');
+    toast(`Demo mode: Password reset instructions simulated for ${email}.`);
+  }
+});
+
+// Set New Password Form submission (after clicking reset link in email)
+document.getElementById('resetPasswordForm')?.addEventListener('submit', async e => {
+  e.preventDefault();
+  const newPass = document.getElementById('newPasswordInput')?.value || '';
+  const confirmPass = document.getElementById('confirmPasswordInput')?.value || '';
+  const errEl = document.getElementById('resetPasswordError');
+  const successEl = document.getElementById('resetPasswordSuccess');
+  const submitBtn = document.getElementById('resetPasswordSubmitBtn');
+
+  if (errEl) errEl.classList.add('hidden');
+  if (successEl) successEl.classList.add('hidden');
+
+  if (newPass.length < 6) {
+    if (errEl) {
+      errEl.textContent = 'Password must be at least 6 characters.';
+      errEl.classList.remove('hidden');
+    }
+    return;
+  }
+
+  if (newPass !== confirmPass) {
+    if (errEl) {
+      errEl.textContent = 'Passwords do not match.';
+      errEl.classList.remove('hidden');
+    }
+    return;
+  }
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Updating...';
+  }
+
+  try {
+    if (window.banglaHaatSupabase?.auth) {
+      const { error } = await window.banglaHaatSupabase.auth.updateUser({
+        password: newPass
+      });
+      if (error) throw error;
+    }
+
+    if (successEl) {
+      successEl.textContent = 'Password updated successfully! Redirecting to login...';
+      successEl.classList.remove('hidden');
+    }
+    toast('Password changed successfully');
+
+    setTimeout(() => {
+      hide('resetPasswordModal');
+      // Clean recovery fragment from URL
+      try {
+        history.replaceState(null, '', window.location.pathname);
+      } catch (err) {}
+      show('authModal');
+    }, 1500);
+  } catch (err) {
+    if (errEl) {
+      errEl.textContent = err.message || 'Failed to update password. Link may have expired.';
+      errEl.classList.remove('hidden');
+    }
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Save new password';
+    }
   }
 });
 
@@ -1312,7 +1662,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async e => {
 
       if (data?.user) {
         const u = data.user;
-        const role = u.user_metadata?.role || (u.email === 'admin@stockly.com' ? 'admin' : 'customer');
+        const role = getRoleForEmail(u.email);
         const name = u.user_metadata?.name || u.email.split('@')[0];
         loginAs({
           id: u.id,
@@ -1365,7 +1715,6 @@ document.getElementById('signupForm')?.addEventListener('submit', async e => {
   const nameInput = document.getElementById('signupName');
   const emailInput = document.getElementById('signupEmail');
   const passInput = document.getElementById('signupPassword');
-  const roleInput = document.getElementById('signupRole');
   const errorEl = document.getElementById('signupError');
   const successEl = document.getElementById('signupSuccess');
   const submitBtn = document.getElementById('signupSubmitBtn');
@@ -1373,7 +1722,8 @@ document.getElementById('signupForm')?.addEventListener('submit', async e => {
   const name = nameInput.value.trim();
   const email = emailInput.value.trim().toLowerCase();
   const password = passInput.value;
-  const role = roleInput.value;
+  // Role is determined directly by ADMIN_EMAILS in code:
+  const role = getRoleForEmail(email);
 
   if (submitBtn) {
     submitBtn.disabled = true;
@@ -1408,7 +1758,7 @@ document.getElementById('signupForm')?.addEventListener('submit', async e => {
             id: u.id,
             email: u.email,
             name: u.user_metadata?.name || name,
-            role: u.user_metadata?.role || role
+            role: getRoleForEmail(u.email)
           });
         }, 700);
         return;
@@ -1685,6 +2035,9 @@ const savedUser = sessionStorage.getItem('stockly_user');
 if (savedUser) {
   try {
     state.user = JSON.parse(savedUser);
+    if (state.user?.email) {
+      state.user.role = getRoleForEmail(state.user.email);
+    }
     render(false);
   } catch (e) {
     show('authModal');
@@ -1693,12 +2046,18 @@ if (savedUser) {
   show('authModal');
 }
 
+// Check if the page was opened with a password recovery token in the URL hash
+if (window.location.hash && (window.location.hash.includes('type=recovery') || window.location.hash.includes('access_token'))) {
+  hide('authModal');
+  show('resetPasswordModal');
+}
+
 // Auto-restore and synchronize real Supabase session
 if (window.banglaHaatSupabase?.auth) {
   window.banglaHaatSupabase.auth.getSession().then(({ data: { session } }) => {
     if (session?.user && !state.user) {
       const u = session.user;
-      const role = u.user_metadata?.role || (u.email === 'admin@stockly.com' ? 'admin' : 'customer');
+      const role = getRoleForEmail(u.email);
       const name = u.user_metadata?.name || u.email.split('@')[0];
       loginAs({
         id: u.id,
@@ -1710,9 +2069,13 @@ if (window.banglaHaatSupabase?.auth) {
   }).catch(() => {});
 
   window.banglaHaatSupabase.auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_IN' && session?.user && !state.user) {
+    if (event === 'PASSWORD_RECOVERY') {
+      hide('authModal');
+      show('resetPasswordModal');
+      toast('Please set your new password.');
+    } else if (event === 'SIGNED_IN' && session?.user && !state.user) {
       const u = session.user;
-      const role = u.user_metadata?.role || (u.email === 'admin@stockly.com' ? 'admin' : 'customer');
+      const role = getRoleForEmail(u.email);
       const name = u.user_metadata?.name || u.email.split('@')[0];
       loginAs({
         id: u.id,

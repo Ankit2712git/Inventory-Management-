@@ -2,9 +2,14 @@
 // Bangla Haat — Supabase Edge Function: Send Customer Inquiries via Resend
 // =============================================================================
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// Declare Deno namespace for IDE / TypeScript environments without Deno language server
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
+  };
+  serve(handler: (req: Request) => Promise<Response> | Response): void;
+};
 
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") || "re_4bPUB9Bd_Ap59DSYT2Kk9Rps9XL3y1awC";
 const STORE_OWNER_EMAIL = "ankitmajumdar27@gmail.com";
 
 const corsHeaders = {
@@ -13,13 +18,21 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    if (!resendApiKey) {
+      return new Response(
+        JSON.stringify({ error: "Missing RESEND_API_KEY in Supabase environment secrets." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { name, email, subject, message } = await req.json();
 
     if (!email || !message) {
@@ -57,7 +70,7 @@ serve(async (req: Request) => {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${RESEND_API_KEY}`,
+        "Authorization": `Bearer ${resendApiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -86,3 +99,4 @@ serve(async (req: Request) => {
     );
   }
 });
+

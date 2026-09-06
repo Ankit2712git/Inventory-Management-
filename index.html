@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="style.css?v=8" />
   </head>
   <body>
     <!-- Mobile sidebar overlay backdrop -->
@@ -66,21 +66,8 @@
                   <b>Notifications</b>
                   <button id="clearNotifications">Mark all read</button>
                 </div>
-                <div class="notification-list">
-                  <div class="notification-item unread">
-                    <span class="dot alert">●</span>
-                    <div>
-                      <p>Two items need restocking</p>
-                      <small>Terra Ceramic Vase & Oakline Chair</small>
-                    </div>
-                  </div>
-                  <div class="notification-item">
-                    <span class="dot success">●</span>
-                    <div>
-                      <p>Inventory database synced</p>
-                      <small>Supabase live sync active</small>
-                    </div>
-                  </div>
+                <div class="notification-list" id="notificationList">
+                  <!-- Notifications are populated dynamically based on whether the user is Customer or Administrator -->
                 </div>
               </div>
             </div>
@@ -172,7 +159,7 @@
         <form id="signupForm" class="auth-form hidden">
           <p class="eyebrow">NEW WORKSPACE</p>
           <h1>Create your account</h1>
-          <p class="muted">Join Bangla Haat as a customer or store staff.</p>
+          <p class="muted">Join Bangla Haat to start shopping and tracking orders.</p>
 
           <div class="form-group">
             <label for="signupName">Full name</label>
@@ -185,13 +172,6 @@
           <div class="form-group">
             <label for="signupPassword">Create password</label>
             <input id="signupPassword" type="password" required minlength="6" placeholder="Minimum 6 characters" autocomplete="new-password" />
-          </div>
-          <div class="form-group">
-            <label for="signupRole">Account type</label>
-            <select id="signupRole" class="auth-select">
-              <option value="customer">Customer / Shopper</option>
-              <option value="admin">Administrator / Store Staff</option>
-            </select>
           </div>
 
           <p class="login-error hidden" id="signupError"></p>
@@ -286,6 +266,63 @@
       </div>
     </div>
 
+    <!-- Email Integration Config Modal -->
+    <div class="modal-backdrop hidden" id="emailConfigModal">
+      <div class="modal slim" role="dialog" aria-modal="true" aria-labelledby="emailConfigModalTitle">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">INTEGRATION</p>
+            <h2 id="emailConfigModalTitle">Store email service</h2>
+          </div>
+          <button class="close-modal" data-close="emailConfigModal" aria-label="Close modal">×</button>
+        </div>
+        <form id="emailConfigForm" class="modal-form-wrapper">
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="web3FormsKeyInput">Web3Forms Access Key (optional)</label>
+              <input id="web3FormsKeyInput" placeholder="e.g. 743f5505-dfa8-..." autocomplete="off" />
+            </div>
+            <p class="muted">All inquiries are automatically recorded directly on your store server. You can optionally link your personal Web3Forms access key if you wish to forward emails through Web3Forms.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn-secondary" id="clearEmailKeyBtn">Clear key</button>
+            <button class="primary" type="submit">Save settings</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Reset Password Modal (Recovery Flow) -->
+    <div class="modal-backdrop hidden" id="resetPasswordModal">
+      <div class="modal slim" role="dialog" aria-modal="true" aria-labelledby="resetPasswordTitle">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">ACCOUNT RECOVERY</p>
+            <h2 id="resetPasswordTitle">Set new password</h2>
+          </div>
+          <button class="close-modal" data-close="resetPasswordModal" aria-label="Close modal">×</button>
+        </div>
+        <form id="resetPasswordForm" class="modal-form-wrapper">
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="newPasswordInput">New password</label>
+              <input id="newPasswordInput" type="password" required minlength="6" placeholder="At least 6 characters" autocomplete="new-password" />
+            </div>
+            <div class="form-group">
+              <label for="confirmPasswordInput">Confirm new password</label>
+              <input id="confirmPasswordInput" type="password" required minlength="6" placeholder="Re-enter new password" autocomplete="new-password" />
+            </div>
+            <p class="login-error hidden" id="resetPasswordError"></p>
+            <p class="login-success hidden" id="resetPasswordSuccess"></p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn-secondary" data-close="resetPasswordModal">Cancel</button>
+            <button class="primary" id="resetPasswordSubmitBtn" type="submit">Save new password</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- Bill / Invoice Modal -->
     <div class="modal-backdrop hidden" id="billModal">
       <div class="modal bill-modal" role="dialog" aria-modal="true">
@@ -305,14 +342,66 @@
       </div>
     </div>
 
+    <!-- Product Details Modal (Item Description & Story View) -->
+    <div class="modal-backdrop hidden" id="productDetailModal">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="productDetailTitle" style="max-width: 640px;">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow" id="productDetailCategory">HERITAGE ITEM</p>
+            <h2 id="productDetailTitle">Product details</h2>
+          </div>
+          <button class="close-modal" data-close="productDetailModal" aria-label="Close modal">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="product-detail-layout">
+            <div class="product-detail-img-wrap">
+              <img id="productDetailImage" src="" alt="Product image" class="product-detail-img" />
+            </div>
+            <div class="product-detail-content">
+              <div class="product-detail-pricing">
+                <span class="product-detail-price" id="productDetailPrice">₹0</span>
+                <span class="product-detail-oldprice" id="productDetailOldPrice"></span>
+                <span class="discount-pill hidden" id="productDetailDiscount"></span>
+              </div>
+              <div class="product-detail-stock" id="productDetailStock"></div>
+
+              <div class="product-detail-section">
+                <h4>Description & Craft Details</h4>
+                <p id="productDetailDesc" class="product-detail-desc"></p>
+              </div>
+
+              <div class="product-detail-specs">
+                <div class="spec-item">
+                  <small>SKU / Item code</small>
+                  <b id="productDetailSku"></b>
+                </div>
+                <div class="spec-item">
+                  <small>Category</small>
+                  <b id="productDetailCategoryText"></b>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer" id="productDetailFooter">
+          <button type="button" class="btn-secondary" data-close="productDetailModal">Close</button>
+          <button class="primary" id="productDetailActionBtn">Buy at counter</button>
+        </div>
+      </div>
+    </div>
+
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-client.js"></script>
-    <script src="app.js"></script>
+    <script src="supabase-client.js?v=8"></script>
+    <script src="app.js?v=8"></script>
     <script>
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js').catch((err) => {
+            console.debug('ServiceWorker registration skipped:', err?.message || err);
+          });
+        });
       }
     </script>
   </body>

@@ -1,0 +1,8 @@
+{
+  "name": "Bangla Haat",
+  "description": "Modern inventory management, checkout, and product discovery for Bangla Haat.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
