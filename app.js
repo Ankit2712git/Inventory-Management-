@@ -385,6 +385,7 @@ function closeDropdowns() {
 function signOut() {
   state.user = null;
   sessionStorage.removeItem('stockly_user');
+  sessionStorage.setItem('stockly_signed_out', '1');
   state.page = 'dashboard';
   state.filter = 'all';
   state.search = '';
@@ -461,6 +462,7 @@ function loginAs(user) {
   }
   state.user = user;
   sessionStorage.setItem('stockly_user', JSON.stringify(user));
+  sessionStorage.removeItem('stockly_signed_out');
   state.page = 'dashboard';
   state.filter = 'all';
   state.search = '';
@@ -1697,6 +1699,67 @@ document.getElementById('resetPasswordForm')?.addEventListener('submit', async e
   }
 });
 
+// Live Admin Email Detection on Sign-in
+const loginEmailInput = document.getElementById('loginEmail');
+const loginPassInput = document.getElementById('loginPassword');
+const adminNotice = document.getElementById('adminDetectedNotice');
+const adminInstantBtn = document.getElementById('adminInstantLoginBtn');
+
+function handleLoginEmailChange(val) {
+  const clean = (val || '').trim().toLowerCase();
+  const isAdmin = isAdminEmail(clean);
+  if (isAdmin) {
+    if (adminNotice) adminNotice.classList.remove('hidden');
+    const submitBtn = document.getElementById('loginSubmitBtn');
+    if (submitBtn) submitBtn.innerHTML = 'Enter Admin Dashboard <span>→</span>';
+    if (loginPassInput) loginPassInput.removeAttribute('required');
+  } else {
+    if (adminNotice) adminNotice.classList.add('hidden');
+    const submitBtn = document.getElementById('loginSubmitBtn');
+    if (submitBtn) submitBtn.innerHTML = 'Sign in <span>→</span>';
+    if (loginPassInput) loginPassInput.setAttribute('required', 'true');
+  }
+}
+
+loginEmailInput?.addEventListener('input', e => {
+  handleLoginEmailChange(e.target.value);
+});
+
+loginEmailInput?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const val = (e.target.value || '').trim().toLowerCase();
+    if (isAdminEmail(val)) {
+      e.preventDefault();
+      const accounts = getStoredAccounts();
+      const existing = accounts[val] || {};
+      const adminUser = saveAccount({
+        ...existing,
+        email: val,
+        name: existing.name || 'Ankit Majumder',
+        role: 'admin'
+      });
+      sessionStorage.removeItem('stockly_signed_out');
+      toast('Welcome to your Admin Dashboard!');
+      loginAs(adminUser);
+    }
+  }
+});
+
+adminInstantBtn?.addEventListener('click', () => {
+  const val = (loginEmailInput?.value || 'majumderankit73@gmail.com').trim().toLowerCase();
+  const accounts = getStoredAccounts();
+  const existing = accounts[val] || {};
+  const adminUser = saveAccount({
+    ...existing,
+    email: val,
+    name: existing.name || 'Ankit Majumder',
+    role: 'admin'
+  });
+  sessionStorage.removeItem('stockly_signed_out');
+  toast('Welcome to your Admin Dashboard!');
+  loginAs(adminUser);
+});
+
 // Secure Login Form submission
 document.getElementById('loginForm')?.addEventListener('submit', async e => {
   e.preventDefault();
@@ -2139,14 +2202,33 @@ const savedUser = sessionStorage.getItem('stockly_user');
 if (savedUser) {
   try {
     state.user = JSON.parse(savedUser);
-    if (state.user?.email) {
+    // Discard any obsolete demo customer session (e.g. customer@stockly.com, Riya Sharma)
+    if (!state.user?.email || state.user.email === 'customer@stockly.com' || state.user.email === 'test@stockly.com') {
+      sessionStorage.removeItem('stockly_user');
+      state.user = null;
+    } else {
       state.user.role = getRoleForEmail(state.user.email);
       sessionStorage.setItem('stockly_user', JSON.stringify(state.user));
     }
-    render(false);
   } catch (e) {
-    show('authModal');
+    state.user = null;
   }
+}
+
+// If no user is active and user hasn't explicitly signed out:
+// Default directly to Workspace Admin (Ankit Majumder) so Admin Dashboard is ready immediately
+const isExplicitlySignedOut = sessionStorage.getItem('stockly_signed_out') === '1';
+if (!state.user && !isExplicitlySignedOut) {
+  const adminUser = saveAccount({
+    email: 'majumderankit73@gmail.com',
+    name: 'Ankit Majumder',
+    role: 'admin'
+  });
+  state.user = adminUser;
+  sessionStorage.setItem('stockly_user', JSON.stringify(adminUser));
+  render(false);
+} else if (state.user) {
+  render(false);
 } else {
   show('authModal');
 }
