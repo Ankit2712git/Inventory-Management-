@@ -98,7 +98,8 @@ const defaultProducts = [
 const ADMIN_EMAILS = [
   'admin@stockly.com',
   'majumderankit73@gmail.com',
-  'ankitmajumdar27@gmail.com'
+  'ankitmajumdar27@gmail.com',
+  'majumdarankit12@gmail.com'
 ];
 
 /**
